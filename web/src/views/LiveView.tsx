@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useWsStore } from "../stores/wsStore";
 import { useCatScanSocket } from "../hooks/useCatScanSocket";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { FloorPlan } from "../components/FloorPlan";
 import { CatCard } from "../components/CatCard";
 import { NodeStatusList } from "../components/NodeStatusList";
@@ -13,17 +14,20 @@ const WS_URL =
 
 interface TrackingPanelProps {
   drawerOpen?: boolean;
+  isMobile?: boolean;
 }
 
-function TrackingPanel({ drawerOpen }: TrackingPanelProps) {
+function TrackingPanel({ drawerOpen, isMobile }: TrackingPanelProps) {
   const cats = useWsStore((s) => s.cats);
   const nodes = useWsStore((s) => s.nodes);
   const nowSec = useMemo(() => Math.floor(Date.now() / 1000), []);
+
+  const drawerClass = isMobile
+    ? `${styles.drawer} ${drawerOpen ? styles.drawerOpen : ""}`
+    : styles.trackingPanel;
+
   return (
-    <div
-      className={`${styles.trackingPanel} ${drawerOpen ? styles.drawerOpen : ""}`}
-      data-testid="tracking-panel"
-    >
+    <div className={drawerClass} data-testid="tracking-panel">
       {cats.map((cat) => (
         <CatCard key={cat.id} cat={cat} nowSec={nowSec} />
       ))}
@@ -40,6 +44,8 @@ export function LiveView({ wsUrl = WS_URL }: LiveViewProps) {
   const status = useCatScanSocket(wsUrl);
   const cats = useWsStore((s) => s.cats);
   const nodes = useWsStore((s) => s.nodes);
+  const isMobile = useMediaQuery("(max-width: 768px)");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
     <>
@@ -49,11 +55,21 @@ export function LiveView({ wsUrl = WS_URL }: LiveViewProps) {
         </div>
       )}
       <div className={styles.layout} data-testid="live-view">
-        <TrackingPanel />
+        <TrackingPanel drawerOpen={drawerOpen} isMobile={isMobile} />
         <div className={styles.floorPlanArea}>
           <FloorPlan cats={cats} nodes={nodes} />
         </div>
       </div>
+      {isMobile && (
+        <button
+          className={styles.drawerToggle}
+          data-testid="drawer-toggle"
+          aria-label="Toggle tracking panel"
+          onClick={() => setDrawerOpen((o) => !o)}
+        >
+          {drawerOpen ? "✕" : "☰"}
+        </button>
+      )}
     </>
   );
 }
