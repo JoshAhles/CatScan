@@ -1,5 +1,6 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 set -e
 
 # Only run fast tests; full e2e runs in Phase 3+ explicitly
-pnpm test:fast
+# Use --pool=forks to avoid vitest worker thread segfault on Node.js v23/macOS
+cd server && npx vitest run --exclude '**/*.e2e.test.ts' --pool=forks

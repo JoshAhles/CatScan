@@ -158,7 +158,7 @@ export class Orchestrator {
     const event: ServerEvent = {
       type: "nodeDiscovered",
       nodeId: nodeId as `node-${string}`,
-      at: Date.now(),
+      at: this.cfg.nowSec() * 1000,
     };
     this.ws.broadcast(event);
   }
