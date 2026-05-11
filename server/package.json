@@ -1,0 +1,36 @@
+{
+  "name": "@catscan/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "18.x" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "test": "vitest run",
+    "test:fast": "vitest run --exclude '**/*.e2e.test.ts'",
+    "test:watch": "vitest",
+    "lint": "eslint src test --ext .ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "fastify": "^4.27.0",
+    "@fastify/static": "^7.0.4",
+    "@fastify/multipart": "^8.3.0",
+    "mqtt": "^5.7.0",
+    "ws": "^8.17.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.10",
+    "@types/node": "^18.19.0",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^7.10.0",
+    "@typescript-eslint/parser": "^7.10.0",
+    "eslint": "^8.57.0",
+    "tsx": "^4.10.5",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}
