@@ -17,7 +17,8 @@ beforeEach(() => {
     get: vi.fn(() => "source-over"),
     configurable: true,
   });
-  HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx as unknown as CanvasRenderingContext2D);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx) as any;
   HTMLCanvasElement.prototype.toBlob = vi.fn((cb) => cb(new Blob(["fake"], { type: "image/png" })));
 });
 
