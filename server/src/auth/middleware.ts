@@ -1,0 +1,14 @@
+import { FastifyInstance } from "fastify";
+import { checkToken, TOKEN_HEADER } from "./sharedSecret";
+
+export function registerAuth(app: FastifyInstance, expectedToken: string) {
+  app.addHook("onRequest", async (req, reply) => {
+    // Allow health check without auth — used for systemd / monitoring liveness
+    if (req.url === "/api/health") return;
+    const presented = req.headers[TOKEN_HEADER];
+    const token = Array.isArray(presented) ? presented[0] : presented;
+    if (!checkToken(expectedToken, token)) {
+      reply.code(401).send({ error: "unauthorized" });
+    }
+  });
+}
