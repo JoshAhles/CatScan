@@ -1,0 +1,19 @@
+[Unit]
+Description=CatScan home cat tracking
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=catscan
+WorkingDirectory=/opt/catscan/server
+EnvironmentFile=/opt/catscan/.env
+Environment=TZ=America/Phoenix
+ExecStart=/usr/bin/node dist/server.js
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
