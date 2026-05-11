@@ -9,7 +9,8 @@
     "test:fast": "pnpm --filter ./server test:fast && pnpm --filter ./web test:fast",
     "setup": "node scripts/setup.mjs",
     "lint": "pnpm -r lint",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "prepare": "husky"
   },
   "devDependencies": {
     "husky": "^9.0.11",

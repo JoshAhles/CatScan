@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -e
+
+# Only run fast tests; full e2e runs in Phase 3+ explicitly
+pnpm test:fast
