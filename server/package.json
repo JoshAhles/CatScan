@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": "18.x" },
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
@@ -14,10 +16,11 @@
     "lint": "eslint src test --ext .ts"
   },
   "dependencies": {
+    "@fastify/multipart": "^8.3.0",
+    "@fastify/static": "^7.0.4",
+    "@fastify/websocket": "^8.3.1",
     "better-sqlite3": "^11.0.0",
     "fastify": "^4.27.0",
-    "@fastify/static": "^7.0.4",
-    "@fastify/multipart": "^8.3.0",
     "mqtt": "^5.7.0",
     "ws": "^8.17.0",
     "zod": "^3.23.8"
