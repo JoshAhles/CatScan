@@ -1,1 +1,10 @@
 .superpowers/
+node_modules/
+*.log
+.env
+.env.local
+data/
+dist/
+build/
+.pio/
+coverage/
