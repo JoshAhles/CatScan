@@ -24,6 +24,16 @@ export class EventStore {
   listCats() {
     return this.db.prepare(`SELECT id, name, color_hex, photo_path FROM cats ORDER BY id`).all() as Array<any>;
   }
+  updateCat(id: number, fields: Partial<{ name: string; color_hex: string; photo_path: string | null }>) {
+    const parts: string[] = [];
+    const values: unknown[] = [];
+    if (fields.name !== undefined) { parts.push("name = ?"); values.push(fields.name); }
+    if (fields.color_hex !== undefined) { parts.push("color_hex = ?"); values.push(fields.color_hex); }
+    if ("photo_path" in fields) { parts.push("photo_path = ?"); values.push(fields.photo_path ?? null); }
+    if (parts.length === 0) return;
+    values.push(id);
+    this.db.prepare(`UPDATE cats SET ${parts.join(", ")} WHERE id = ?`).run(...values);
+  }
 
   bindMac(mac: string, catId: number, source: "auto"|"manual"|"provisional", tsSec: number) {
     this.db.prepare(`UPDATE mac_bindings SET unbound_at = ? WHERE mac = ? AND unbound_at IS NULL`).run(tsSec, mac);
@@ -56,6 +66,9 @@ export class EventStore {
   loadCentroids(): Record<string, number[]> {
     const rows = this.db.prepare(`SELECT room, centroid_json FROM room_centroids`).all() as Array<{room:string,centroid_json:string}>;
     return Object.fromEntries(rows.map(r => [r.room, JSON.parse(r.centroid_json)]));
+  }
+  deleteCentroid(room: string) {
+    this.db.prepare(`DELETE FROM room_centroids WHERE room = ?`).run(room);
   }
 
   insertRawEvent(mac: string, nodeId: string, rssi: number, ts: number) {
