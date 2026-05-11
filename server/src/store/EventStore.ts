@@ -67,6 +67,9 @@ export class EventStore {
     const rows = this.db.prepare(`SELECT room, centroid_json FROM room_centroids`).all() as Array<{room:string,centroid_json:string}>;
     return Object.fromEntries(rows.map(r => [r.room, JSON.parse(r.centroid_json)]));
   }
+  deleteCentroid(room: string) {
+    this.db.prepare(`DELETE FROM room_centroids WHERE room = ?`).run(room);
+  }
 
   insertRawEvent(mac: string, nodeId: string, rssi: number, ts: number) {
     this.db.prepare(`INSERT INTO raw_events(mac, node_id, rssi, ts) VALUES(?, ?, ?, ?)`).run(mac, nodeId, rssi, ts);
