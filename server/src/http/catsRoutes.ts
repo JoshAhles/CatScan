@@ -14,7 +14,11 @@ export function registerCats(app: FastifyInstance, store: EventStore) {
     const body = postCatBodySchema.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: body.error.message });
     try {
-      const id = store.createCat({ name: body.data.name, color_hex: body.data.colorHex, photo_path: body.data.photoPath });
+      const id = store.createCat({
+        name: body.data.name,
+        color_hex: body.data.colorHex,
+        ...(body.data.photoPath !== undefined ? { photo_path: body.data.photoPath } : {}),
+      });
       const cats = store.listCats();
       const cat = cats.find(c => c.id === id);
       return reply.code(201).send(cat);

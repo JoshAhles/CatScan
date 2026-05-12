@@ -137,6 +137,24 @@ export function makeTransitionEvent(catId: number, from: string, to: string): Se
   };
 }
 
+export function makeSilentEvent(catId: number, lastRoom: string): ServerEvent {
+  return {
+    type: "silent",
+    catId,
+    lastRoom,
+    lastSeen: Math.floor(Date.now() / 1000),
+  };
+}
+
+export function makeUnsilentEvent(catId: number, room: string): ServerEvent {
+  return {
+    type: "unsilent",
+    catId,
+    room,
+    at: Math.floor(Date.now() / 1000),
+  };
+}
+
 /**
  * Periodic RSSI fluctuations. Matches the bound-mac variant of
  * `rssiUpdateSchema.values`: `{ nodeId, catId, rssi }`. (The unbound variant

@@ -118,6 +118,37 @@
   min-width: 132px;
 }
 
+.demoBanner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 1rem;
+  background: rgba(255, 204, 77, 0.06);
+  border: 1px solid var(--cat-ollie);
+  border-radius: 4px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--text);
+}
+
+.demoBannerTag {
+  flex-shrink: 0;
+  padding: 0.2rem 0.45rem;
+  background: var(--cat-ollie);
+  color: var(--bg);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  border-radius: 2px;
+}
+
+.demoBannerText {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
 .demoPill {
   display: inline-flex;
   align-items: center;
@@ -305,52 +336,6 @@
   font-style: italic;
 }
 
-/* NodeStatusList */
-.nodeList {
-  padding: 0.75rem 1rem;
-}
-
-.nodeListTitle {
-  font-size: 0.65rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  margin-bottom: 0.5rem;
-}
-
-.nodeRow {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0;
-  font-size: 0.72rem;
-}
-
-.nodeId {
-  flex: 1;
-  color: var(--text-dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.signalBars {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 14px;
-}
-
-.signalBar {
-  width: 4px;
-  background: var(--border);
-  border-radius: 1px;
-}
-
-.signalBarFilled {
-  background: var(--accent);
-}
-
 /* Floor plan — fluid, fills available grid cell */
 .floorPlanSvg {
   width: auto;
@@ -427,10 +412,6 @@
   font-size: 13px;
   letter-spacing: 0;
   /* Emoji render in their own glyph metrics, so override letter-spacing */
-}
-
-.frameCorners {
-  pointer-events: none;
 }
 
 /* Heatmap view */

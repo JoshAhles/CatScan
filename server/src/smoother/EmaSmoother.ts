@@ -14,7 +14,8 @@ export class EmaSmoother {
 
   isFresh(nowMs: number, staleSeconds: number): boolean {
     if (this.ema === null) return false;
-    const nowSec = nowMs / 1000;
-    return (nowSec - this.lastUpdateMs) <= staleSeconds;
+    // Both `nowMs` and `lastUpdateMs` are milliseconds — compare in ms and
+    // convert the threshold once, not by mixing units like the previous bug.
+    return (nowMs - this.lastUpdateMs) <= staleSeconds * 1000;
   }
 }

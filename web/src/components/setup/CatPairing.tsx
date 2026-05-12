@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { api } from "../../api/client";
 import { PhotoCropper } from "./PhotoCropper";
 
@@ -30,21 +30,30 @@ export function CatPairing({ onComplete }: CatPairingProps) {
         await fetch(`/api/cats/${cat.id}/photo`, { method: "POST", body: form });
       }
       await api(`/api/cats/${cat.id}/pair`, { method: "POST" });
+      setPairingCountdown(60);
       setStep("pairing");
-      let secs = 60;
-      const interval = setInterval(() => {
-        secs -= 1;
-        setPairingCountdown(secs);
-        if (secs <= 0) {
-          clearInterval(interval);
-          setStep("done");
-          onComplete?.();
-        }
-      }, 1000);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
     }
   }
+
+  // Drive the pairing countdown from an effect so the interval is cleaned up
+  // when the user navigates away mid-countdown (or the component unmounts).
+  useEffect(() => {
+    if (step !== "pairing") return;
+    const id = window.setInterval(() => {
+      setPairingCountdown((s) => {
+        if (s <= 1) {
+          window.clearInterval(id);
+          setStep("done");
+          onComplete?.();
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [step, onComplete]);
 
   if (step === "cropping" && photoFile) {
     return (

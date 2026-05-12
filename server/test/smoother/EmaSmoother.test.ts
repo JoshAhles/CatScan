@@ -25,9 +25,10 @@ describe("EmaSmoother", () => {
 
   it("isFresh reports false after node_stale_seconds", () => {
     const s = new EmaSmoother(0.3);
-    s.update(-50, 1000);
-    expect(s.isFresh(1029 * 1000, 30)).toBe(true);
-    expect(s.isFresh(1031 * 1000, 30)).toBe(false);
+    const t0 = 1_700_000_000_000; // arbitrary epoch ms
+    s.update(-50, t0);
+    expect(s.isFresh(t0 + 29 * 1000, 30)).toBe(true);
+    expect(s.isFresh(t0 + 31 * 1000, 30)).toBe(false);
   });
 
   it("value() returns null before any update", () => {

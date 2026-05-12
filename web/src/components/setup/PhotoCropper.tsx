@@ -40,22 +40,9 @@ export function PhotoCropper({ file, onAccept }: PhotoCropperProps) {
 
   async function handleAccept() {
     const img = imgRef.current;
-    if (!img) {
-      // Fallback: create a blank canvas with circle mask
-      const c = document.createElement("canvas");
-      c.width = c.height = 512;
-      const ctx = c.getContext("2d")!;
-      ctx.drawImage(c, 0, 0);
-      ctx.globalCompositeOperation = "destination-in";
-      ctx.beginPath();
-      ctx.arc(256, 256, 256, 0, Math.PI * 2);
-      ctx.fill();
-      const blob = await new Promise<Blob>((res) =>
-        c.toBlob((b) => res(b!), "image/png")
-      );
-      onAccept(blob);
-      return;
-    }
+    // Image hasn't loaded yet (or load failed) — refuse the click rather than
+    // emit an empty/circle-masked blank canvas.
+    if (!img) return;
     const blob = await maskToCircle(img);
     onAccept(blob);
   }

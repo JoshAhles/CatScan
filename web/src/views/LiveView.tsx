@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useWsStore } from "../stores/wsStore";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { FloorPlan } from "../components/FloorPlan";
@@ -14,7 +14,12 @@ interface TrackingPanelProps {
 
 function TrackingPanel({ drawerOpen, isMobile }: TrackingPanelProps) {
   const cats = useWsStore((s) => s.cats);
-  const nowSec = useMemo(() => Math.floor(Date.now() / 1000), []);
+  // Tick once a second so "X in room for Y" durations stay live.
+  const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const id = window.setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const drawerClass = isMobile
     ? `${styles.drawer} ${drawerOpen ? styles.drawerOpen : ""}`

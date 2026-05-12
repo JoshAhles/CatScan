@@ -25,6 +25,9 @@ export interface OrchestratorConfig {
   minCalibrationSamples?: number;
   pairingWindowMs?: number;
   pairingMinRssi?: number;
+  /** How often to broadcast a snapshot of smoothed per-node RSSI values to
+   *  WS clients. Set to 0 to disable (useful in tests). Default 5_000ms. */
+  rssiBroadcastIntervalMs?: number;
   /** Override "now" function for deterministic testing */
   nowSec?: () => number;
 }
@@ -42,6 +45,7 @@ export class Orchestrator {
   private nodeIds: string[] = [];
   private startedAt: number;
   private rotationTimer: ReturnType<typeof setInterval> | null = null;
+  private rssiTimer: ReturnType<typeof setInterval> | null = null;
   private readonly cfg: Required<Omit<OrchestratorConfig, "store" | "ws" | "mqttClient">>;
 
   constructor(options: OrchestratorConfig) {
@@ -61,6 +65,7 @@ export class Orchestrator {
       minCalibrationSamples: options.minCalibrationSamples ?? 15,
       pairingWindowMs: options.pairingWindowMs ?? 60_000,
       pairingMinRssi: options.pairingMinRssi ?? -50,
+      rssiBroadcastIntervalMs: options.rssiBroadcastIntervalMs ?? 5_000,
       nowSec: options.nowSec ?? (() => Math.floor(Date.now() / 1000)),
     };
 
@@ -97,7 +102,9 @@ export class Orchestrator {
     });
 
     this.ingestor = new Ingestor({
-      onReading: (r) => this.handleReading(r.n, r.m, r.r, r.t * 1000),
+      // `Required<RawReading>` guarantees `t` is set (Ingestor fills it from
+       // nowSec() when the payload omits it).
+       onReading: (r) => this.handleReading(r.n, r.m, r.r, (r.t ?? this.cfg.nowSec()) * 1000),
       onNodeDiscovered: (nodeId) => this.handleNodeDiscovered(nodeId),
       knownNodeId: (nodeId) => this.nodeIds.includes(nodeId),
       nowSec: this.cfg.nowSec,
@@ -125,6 +132,15 @@ export class Orchestrator {
 
     // Rotation window timer — check at 04:00 local time
     this.scheduleRotationTimer();
+
+    // Periodic rssiUpdate broadcaster so the UI's Telemetry panel reflects
+    // fresh per-node RSSI values without waiting for a transition event.
+    if (this.cfg.rssiBroadcastIntervalMs > 0) {
+      this.rssiTimer = setInterval(
+        () => this.broadcastRssi(),
+        this.cfg.rssiBroadcastIntervalMs,
+      );
+    }
   }
 
   stop() {
@@ -132,9 +148,57 @@ export class Orchestrator {
       clearInterval(this.rotationTimer);
       this.rotationTimer = null;
     }
+    if (this.rssiTimer) {
+      clearInterval(this.rssiTimer);
+      this.rssiTimer = null;
+    }
     if (this.mqttClient) {
       this.mqttClient.unsubscribe(TOPIC_RAW_PATTERN);
     }
+  }
+
+  /**
+   * Walk every smoother, group fresh values by MAC, and broadcast one
+   * rssiUpdate event carrying the latest readings the server has. Bound MACs
+   * are emitted with their resolved catId; unbound MACs use the `mac`
+   * variant of the union so the UI can still show provisional bars.
+   */
+  private broadcastRssi() {
+    const nowMs = this.cfg.nowSec() * 1000;
+    type Bound = { nodeId: `node-${string}`; catId: number; rssi: number };
+    type Unbound = { nodeId: `node-${string}`; catId: null; mac: string; rssi: number };
+    const macToReadings = new Map<string, Array<{ nodeId: string; rssi: number }>>();
+    for (const [key, smoother] of this.smoothers) {
+      if (!smoother.isFresh(nowMs, this.cfg.nodeStaleSeconds)) continue;
+      const v = smoother.value();
+      if (v === null) continue;
+      const [mac, nodeId] = key.split("|");
+      if (!mac || !nodeId) continue;
+      const arr = macToReadings.get(mac) ?? [];
+      arr.push({ nodeId, rssi: Math.round(v) });
+      macToReadings.set(mac, arr);
+    }
+    if (macToReadings.size === 0) return;
+
+    const values: Array<Bound | Unbound> = [];
+    for (const [mac, readings] of macToReadings) {
+      const catId = this.store.findCatByMac(mac);
+      for (const { nodeId, rssi } of readings) {
+        if (catId !== null) {
+          values.push({ nodeId: nodeId as `node-${string}`, catId, rssi });
+        } else {
+          values.push({ nodeId: nodeId as `node-${string}`, catId: null, mac, rssi });
+        }
+      }
+    }
+    if (values.length === 0) return;
+
+    const event: ServerEvent = {
+      type: "rssiUpdate",
+      ts: this.cfg.nowSec(),
+      values,
+    };
+    this.ws.broadcast(event);
   }
 
   /** Direct message injection for testing */
@@ -347,11 +411,30 @@ export class Orchestrator {
       };
     });
 
+    // Pre-populate rssiByCatId from any fresh smoothers tied to bound MACs.
+    // Without this, a freshly-connected client would see "—" on the Telemetry
+    // bars until the next rssiUpdate broadcast tick — even though the server
+    // already has authoritative values cached in the smoothers.
+    const nowMs = ts * 1000;
+    const rssiByNode = new Map<string, Record<string, number>>();
+    for (const [key, smoother] of this.smoothers) {
+      if (!smoother.isFresh(nowMs, this.cfg.nodeStaleSeconds)) continue;
+      const v = smoother.value();
+      if (v === null) continue;
+      const [mac, nodeId] = key.split("|");
+      if (!mac || !nodeId) continue;
+      const catId = this.store.findCatByMac(mac);
+      if (catId === null) continue;
+      const map = rssiByNode.get(nodeId) ?? {};
+      map[String(catId)] = Math.round(v);
+      rssiByNode.set(nodeId, map);
+    }
+
     const nodeStates = nodes.map(n => ({
       id: n.id as `node-${string}`,
       roomName: (n.room_name ?? null) as string | null,
       status: (n.status ?? "discovered") as "discovered" | "online" | "offline",
-      rssiByCatId: {} as Record<string, number>,
+      rssiByCatId: rssiByNode.get(n.id as string) ?? {},
     }));
 
     const calibration: Record<string, "calibrated" | "uncalibrated"> = {};

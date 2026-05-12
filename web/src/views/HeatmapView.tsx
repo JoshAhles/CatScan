@@ -38,21 +38,27 @@ interface ChipProps<T extends string> {
   options: ReadonlyArray<{ value: T; label: string }>;
   value: T;
   onChange: (v: T) => void;
+  ariaLabel: string;
 }
 
-function ChipRow<T extends string>({ options, value, onChange }: ChipProps<T>) {
+function ChipRow<T extends string>({ options, value, onChange, ariaLabel }: ChipProps<T>) {
   return (
-    <div className={styles.heatChipRow}>
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          className={`${styles.heatChip} ${o.value === value ? styles.heatChipActive : ""}`}
-          onClick={() => onChange(o.value)}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div className={styles.heatChipRow} role="radiogroup" aria-label={ariaLabel}>
+      {options.map((o) => {
+        const isActive = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={isActive}
+            className={`${styles.heatChip} ${isActive ? styles.heatChipActive : ""}`}
+            onClick={() => onChange(o.value)}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -136,6 +142,7 @@ export function HeatmapView() {
           <ChipRow<CatScope>
             value={catScope}
             onChange={setCatScope}
+            ariaLabel="Cat selection"
             options={[
               { value: "BOTH", label: "BOTH" },
               { value: "OLLIE", label: "OLLIE" },
@@ -148,6 +155,7 @@ export function HeatmapView() {
           <ChipRow<DayRange>
             value={dayRange}
             onChange={setDayRange}
+            ariaLabel="Time window"
             options={(["1", "7", "30"] as DayRange[]).map((v) => ({ value: v, label: DAY_RANGE_LABEL[v] }))}
           />
         </div>
@@ -156,6 +164,7 @@ export function HeatmapView() {
           <ChipRow<HourBand>
             value={hourBand}
             onChange={setHourBand}
+            ariaLabel="Hour-of-day band"
             options={(["ALL", "MORN", "AFT", "EVE", "NIGHT"] as HourBand[]).map((v) => ({
               value: v,
               label: HOUR_BAND_RANGE[v].label,

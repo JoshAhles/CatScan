@@ -7,6 +7,7 @@ import { SetupView } from "./views/SetupView";
 import { useWsStore } from "./stores/wsStore";
 import { useCatScanSocket, type ConnectionStatus } from "./hooks/useCatScanSocket";
 import { DEMO_MODE, installDemo } from "./demo/demoController";
+import { floorPlanConfig } from "./floorPlan/config";
 import styles from "./styles/mission.module.css";
 
 type Tab = "LIVE" | "HEATMAP" | "SETUP";
@@ -51,7 +52,7 @@ export default function App() {
     <div className={styles.root}>
       <HUD
         onlineNodeCount={onlineCount}
-        totalNodes={Math.max(6, nodes.length)}
+        totalNodes={Math.max(floorPlanConfig.nodes.length, nodes.length)}
         sessionTime={clock}
         uptimeSec={0}
         wsStatus={wsStatus}

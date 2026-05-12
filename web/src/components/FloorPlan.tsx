@@ -195,6 +195,18 @@ export function FloorPlan({ cats, heatLayer }: FloorPlanProps) {
         <filter id="cs-heat-blur" x="-30%" y="-30%" width="160%" height="160%">
           <feGaussianBlur stdDeviation="14" />
         </filter>
+        {/* Indoor footprint — union of every tracked room + the hallway. The
+            heat overlay clips to this so blurred bleed never escapes the
+            home into the dark exterior. */}
+        <clipPath id="cs-indoor-clip">
+          {rooms.map((room) => (
+            <polygon
+              key={`clip-${room.name}`}
+              points={polygonPath(room.polygon)}
+            />
+          ))}
+          <polygon points={polygonPath(hallway.polygon)} />
+        </clipPath>
         <linearGradient id="cs-scanline" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#1ee0c9" stopOpacity="0" />
           <stop offset="50%" stopColor="#1ee0c9" stopOpacity="0.06" />
@@ -236,8 +248,9 @@ export function FloorPlan({ cats, heatLayer }: FloorPlanProps) {
       ))}
 
       {/* Optional heat overlay — sits between room fills and walls so the
-          architectural geometry stays sharp above the diffused heat. */}
-      {heatLayer}
+          architectural geometry stays sharp above the diffused heat. The
+          clip path constrains blurred bleed to the indoor footprint. */}
+      {heatLayer && <g clipPath="url(#cs-indoor-clip)">{heatLayer}</g>}
 
       {/* Pass 2: room walls with door gaps. */}
       {rooms.map((room) => (
