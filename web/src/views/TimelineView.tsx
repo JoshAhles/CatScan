@@ -15,11 +15,11 @@ interface TimelineViewProps {
 }
 
 const ROOM_COLORS: Record<string, string> = {
-  Bedroom: "#1a2340",
+  "Living Room": "#1a2840",
+  Kitchen: "#3a2e10",
+  "Master Bedroom": "#103a32",
   Office: "#1a2a20",
-  Kitchen: "#2a1a20",
-  "Front Room": "#1a1a2a",
-  "Cat Room": "#2a2a1a",
+  "Cat Room": "#2a201a",
 };
 
 function roomColor(room: string): string {
