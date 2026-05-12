@@ -1,16 +1,11 @@
 import { useMemo, useState } from "react";
 import { useWsStore } from "../stores/wsStore";
-import { useCatScanSocket } from "../hooks/useCatScanSocket";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { FloorPlan } from "../components/FloorPlan";
 import { CatCard } from "../components/CatCard";
-import { NodeStatusList } from "../components/NodeStatusList";
+import { Telemetry } from "../components/Telemetry";
+import { ActivityLog } from "../components/ActivityLog";
 import styles from "../styles/mission.module.css";
-
-const WS_URL =
-  typeof window !== "undefined"
-    ? `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/ws`
-    : "ws://localhost:8787/ws";
 
 interface TrackingPanelProps {
   drawerOpen?: boolean;
@@ -19,7 +14,6 @@ interface TrackingPanelProps {
 
 function TrackingPanel({ drawerOpen, isMobile }: TrackingPanelProps) {
   const cats = useWsStore((s) => s.cats);
-  const nodes = useWsStore((s) => s.nodes);
   const nowSec = useMemo(() => Math.floor(Date.now() / 1000), []);
 
   const drawerClass = isMobile
@@ -27,38 +21,40 @@ function TrackingPanel({ drawerOpen, isMobile }: TrackingPanelProps) {
     : styles.trackingPanel;
 
   return (
-    <div className={drawerClass} data-testid="tracking-panel">
-      {cats.map((cat) => (
-        <CatCard key={cat.id} cat={cat} nowSec={nowSec} />
-      ))}
-      <NodeStatusList nodes={nodes} />
-    </div>
+    <aside className={drawerClass} data-testid="tracking-panel" aria-label="Tracked cats">
+      <div className={styles.panelHeader}>
+        <span className={styles.panelTitle}>◢ TRACKING</span>
+        <span className={styles.panelMeta}>
+          {cats.length} <span className={styles.panelMetaDim}>CATS</span>
+        </span>
+      </div>
+      <div className={styles.trackingBody}>
+        {cats.length === 0 ? (
+          <div className={styles.telemetryEmpty}>NO CATS PAIRED</div>
+        ) : (
+          cats.map((cat) => <CatCard key={cat.id} cat={cat} nowSec={nowSec} />)
+        )}
+      </div>
+    </aside>
   );
 }
 
-interface LiveViewProps {
-  wsUrl?: string;
-}
-
-export function LiveView({ wsUrl = WS_URL }: LiveViewProps) {
-  const status = useCatScanSocket(wsUrl);
+export function LiveView() {
   const cats = useWsStore((s) => s.cats);
   const nodes = useWsStore((s) => s.nodes);
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMidWidth = useMediaQuery("(max-width: 1180px)");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
     <>
-      {status !== "open" && (
-        <div className={styles.reconnectBanner} role="status">
-          RECONNECTING…
-        </div>
-      )}
       <div className={styles.layout} data-testid="live-view">
         <TrackingPanel drawerOpen={drawerOpen} isMobile={isMobile} />
-        <div className={styles.floorPlanArea}>
+        <main className={styles.floorPlanArea}>
           <FloorPlan cats={cats} nodes={nodes} />
-        </div>
+        </main>
+        {!isMidWidth && <Telemetry />}
+        <ActivityLog />
       </div>
       {isMobile && (
         <button

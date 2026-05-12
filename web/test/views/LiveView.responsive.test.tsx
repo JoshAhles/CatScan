@@ -18,13 +18,13 @@ beforeEach(() => {
 });
 
 it("renders the live view layout", () => {
-  render(<LiveView wsUrl="ws://localhost/ws" />);
+  render(<LiveView />);
   expect(screen.getByTestId("live-view")).toBeInTheDocument();
 });
 
 it("shows the drawer toggle button on narrow viewport", () => {
   setViewportWidth(375);
-  render(<LiveView wsUrl="ws://localhost/ws" />);
+  render(<LiveView />);
   const toggle = screen.queryByTestId("drawer-toggle");
   // The toggle may exist in the DOM (controlled by CSS visibility)
   // At minimum the live view renders without crashing at 375px
@@ -33,7 +33,7 @@ it("shows the drawer toggle button on narrow viewport", () => {
 
 it("opens tracking panel drawer when toggle is clicked", () => {
   setViewportWidth(375);
-  render(<LiveView wsUrl="ws://localhost/ws" />);
+  render(<LiveView />);
   const toggle = screen.queryByTestId("drawer-toggle");
   if (toggle) {
     fireEvent.click(toggle);

@@ -22,44 +22,146 @@
   flex-direction: column;
 }
 
-/* HUD */
-.hud {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  padding: 0.5rem 1.25rem;
+/* Consolidated header — single block holding the ASCII logo + inline stats */
+.headerBlock {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
+  padding: 0.9rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  position: relative;
+}
+
+.headerBlock::after {
+  /* Faint scan-line texture across the header */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0 3px,
+    rgba(30, 224, 201, 0.022) 3px 4px
+  );
+  pointer-events: none;
+}
+
+.logoWrapper {
+  display: inline-flex;
+  align-items: flex-end; /* baseline-align the smaller segments to cap bottom */
+  gap: 4px;
+}
+
+.logoAscii {
+  color: var(--accent);
+  font-family: "JetBrains Mono", ui-monospace, "Fira Code", monospace;
+  line-height: 1.15;
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  letter-spacing: 0;
+  user-select: none;
+  text-shadow:
+    0 0 1px rgba(30, 224, 201, 0.9),
+    0 0 6px rgba(30, 224, 201, 0.45),
+    0 0 16px rgba(30, 224, 201, 0.18);
+}
+
+.logoBigCap {
+  font-size: 11px;
+}
+
+.logoSmallSeg {
+  /* ~60% of cap size — same style, just smaller, sitting at baseline */
+  font-size: 9px;
+}
+
+.headerStats {
+  display: flex;
+  align-items: stretch;
+  gap: 2rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.headerStat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  min-width: 88px;
+}
+
+.headerStatValue {
+  color: var(--text);
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.headerStatLabel {
+  color: var(--text-dim);
+  font-size: 0.62rem;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
 }
 
-.hudBrand {
-  color: var(--accent);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-}
-
-.hudSpacer {
-  flex: 1;
-}
-
-.hudStat {
-  color: var(--text-dim);
-}
-
-.hudStat span {
-  color: var(--text);
-}
-
-.hudLive {
+.headerStatusBlock {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  color: var(--accent);
+  justify-content: flex-end;
+  min-width: 132px;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
   font-weight: 600;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.statusPillLive {
+  color: var(--accent);
+  box-shadow: 0 0 12px rgba(30, 224, 201, 0.18);
+}
+
+.statusPillReconnect {
+  color: var(--cat-ollie);
+  box-shadow: 0 0 12px rgba(255, 204, 77, 0.18);
+}
+
+.statusPillOffline {
+  color: var(--danger);
+  box-shadow: 0 0 12px rgba(255, 77, 106, 0.18);
+}
+
+@media (max-width: 900px) {
+  .headerBlock {
+    padding: 0.75rem 1rem;
+    gap: 1rem;
+  }
+  .logoAscii {
+    font-size: 8px;
+  }
+  .headerStats {
+    gap: 1rem;
+  }
+  .headerStat {
+    min-width: 60px;
+  }
+  .headerStatValue {
+    font-size: 1.05rem;
+  }
 }
 
 /* TabBar */
@@ -93,31 +195,53 @@
   border-bottom-color: var(--accent);
 }
 
-/* Main layout */
+/* Main layout — 3-col grid + bottom event-feed strip */
 .layout {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(280px, 320px) 1fr minmax(300px, 360px);
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "tracking floorPlan telemetry"
+    "log log log";
   flex: 1;
   overflow: hidden;
+  min-height: 0;
 }
 
 .trackingPanel {
-  width: 320px;
-  flex-shrink: 0;
+  grid-area: tracking;
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 0;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.trackingBody {
+  flex: 1;
   overflow-y: auto;
 }
 
 .floorPlanArea {
-  flex: 1;
+  grid-area: floorPlan;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--bg);
   padding: 1rem;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 1180px) {
+  .layout {
+    grid-template-columns: minmax(280px, 320px) 1fr;
+    grid-template-areas:
+      "tracking floorPlan"
+      "log log";
+  }
 }
 
 /* CatCard */
@@ -210,13 +334,15 @@
   background: var(--accent);
 }
 
-/* Floor plan — blueprint × Mission Control */
+/* Floor plan — fluid, fills available grid cell */
 .floorPlanSvg {
   width: 100%;
-  max-width: 880px;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: inset 0 0 0 1px rgba(30, 224, 201, 0.04), 0 0 24px rgba(30, 224, 201, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(30, 224, 201, 0.04), 0 0 28px rgba(30, 224, 201, 0.06);
   background: var(--bg);
 }
 
@@ -290,21 +416,228 @@
   pointer-events: none;
 }
 
-/* Reconnect banner */
-.reconnectBanner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 0.5rem;
-  background: var(--danger);
-  color: #fff;
-  text-align: center;
-  font-size: 0.75rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  z-index: 100;
+/* Panel chrome (shared by tracking / telemetry / activity log) */
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  background: linear-gradient(180deg, rgba(30, 224, 201, 0.04) 0%, transparent 100%);
+  border-bottom: 1px solid var(--border);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
 }
+
+.panelTitle {
+  color: var(--accent);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.panelMeta {
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  color: var(--text);
+  text-transform: uppercase;
+}
+
+.panelMetaDim {
+  color: var(--text-dim);
+}
+
+/* Telemetry panel (right side) */
+.telemetryPanel {
+  grid-area: telemetry;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.telemetryBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.25rem 0;
+}
+
+.telemetryEmpty {
+  padding: 1rem;
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-align: center;
+}
+
+.telemetryNode {
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid rgba(26, 45, 58, 0.5);
+}
+
+.telemetryNodeHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.telemetryNodeId {
+  color: var(--accent);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  font-weight: 700;
+}
+
+.telemetryNodeRoom {
+  flex: 1;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  color: var(--text);
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  box-shadow: 0 0 4px currentColor;
+  flex-shrink: 0;
+}
+
+.statusDot_online {
+  background: var(--accent);
+  color: var(--accent);
+}
+
+.statusDot_offline {
+  background: var(--danger);
+  color: var(--danger);
+}
+
+.statusDot_discovered {
+  background: var(--cat-ollie);
+  color: var(--cat-ollie);
+}
+
+.telemetryCatList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 0.2rem;
+}
+
+.telemetryCatRow {
+  display: grid;
+  grid-template-columns: 14px 1fr 56px;
+  align-items: center;
+  gap: 6px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+}
+
+.telemetryCatTag {
+  font-weight: 700;
+  text-align: center;
+}
+
+.telemetryBars {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 10px;
+}
+
+.telemetryBar {
+  width: 4px;
+  background: var(--border);
+  border-radius: 1px;
+  transition: background 0.2s;
+}
+
+.telemetryBar:nth-child(1) { height: 3px; }
+.telemetryBar:nth-child(2) { height: 5px; }
+.telemetryBar:nth-child(3) { height: 7px; }
+.telemetryBar:nth-child(4) { height: 9px; }
+.telemetryBar:nth-child(5) { height: 11px; }
+
+.telemetryBarOn {
+  background: var(--accent);
+  box-shadow: 0 0 4px var(--accent);
+}
+
+.telemetryRssi {
+  color: var(--text-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Activity log (bottom strip) */
+.activityLog {
+  grid-area: log;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  max-height: 220px;
+  overflow: hidden;
+}
+
+.activityList {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 1rem 0.4rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.activityItem {
+  display: grid;
+  grid-template-columns: 80px 16px 1fr;
+  align-items: baseline;
+  gap: 12px;
+  padding: 2px 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  animation: cs-activityIn 0.4s ease-out;
+}
+
+@keyframes cs-activityIn {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.activityTime {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+}
+
+.activityIcon {
+  font-weight: 700;
+  text-align: center;
+}
+
+.activityMsg {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activityToneAccent { color: var(--accent); }
+.activityToneAccent .activityIcon { color: var(--accent); }
+.activityToneDim { color: var(--text-dim); }
+.activityToneDim .activityIcon { color: var(--text-dim); }
+.activityToneWarn { color: var(--cat-ollie); }
+.activityToneWarn .activityIcon { color: var(--cat-ollie); }
+.activityToneDanger { color: var(--danger); }
+.activityToneDanger .activityIcon { color: var(--danger); }
+
+/* (Reconnect banner removed — status now lives in the header status pill.) */
 
 /* Mobile drawer */
 .drawer {
@@ -342,20 +675,49 @@
 }
 
 @media (max-width: 768px) {
+  .headerBlock {
+    padding: 0.55rem 0.75rem;
+    gap: 0.6rem;
+  }
+
+  .logoBigCap {
+    font-size: 6.5px;
+  }
+
+  .logoSmallSeg {
+    font-size: 4px;
+  }
+
+  .headerStats {
+    gap: 0.6rem;
+  }
+
+  .headerStatValue {
+    font-size: 0.9rem;
+  }
+
+  .statusPill {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.65rem;
+  }
+
   .layout {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "floorPlan"
+      "log";
   }
 
   .trackingPanel {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
     display: none;
   }
 
   .floorPlanArea {
-    flex: 1;
     padding: 0.5rem;
+  }
+
+  .activityLog {
+    max-height: 140px;
   }
 
   .drawerToggle {

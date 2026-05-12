@@ -4,8 +4,12 @@ import { TabBar } from "../../src/components/TabBar";
 
 it("renders brand, online count, live indicator", () => {
   render(<HUD onlineNodeCount={5} totalNodes={6} sessionTime="14:23:55" uptimeSec={123} />);
-  expect(screen.getByText(/CATSCAN/)).toBeInTheDocument();
-  expect(screen.getByText(/5\/6 NODES/)).toBeInTheDocument();
+  // Logo carries the brand via aria-label since the visible content is ASCII art
+  expect(screen.getByLabelText("CatScan")).toBeInTheDocument();
+  // Stat value + label render in separate elements
+  expect(screen.getByText("5/6")).toBeInTheDocument();
+  expect(screen.getByText("NODES")).toBeInTheDocument();
+  expect(screen.getByText("14:23:55")).toBeInTheDocument();
   expect(screen.getByText("LIVE")).toBeInTheDocument();
 });
 
