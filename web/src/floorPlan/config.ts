@@ -5,12 +5,18 @@
 // Tracked rooms (5):  Living Room, Kitchen, Master Bedroom, Office, Cat Room.
 // Visual-only space:  Corridor (drawn as `hallway`).
 // Skipped:            Bathroom (per user); master-bedroom closet (folded into
-//                     Master Bedroom polygon for visual simplicity — the
-//                     interior wall between bedroom and closet is real but
-//                     irrelevant to room-presence tracking).
+//                     Master Bedroom polygon for visual simplicity).
 //
-// House aspect is close to square (~830×870 px in the Roborock map); using a
-// 700×620 SVG viewBox to leave breathing room for HUD chrome on the dashboard.
+// Connectivity (matches the user's home):
+//   • Kitchen is an island on the top-left — adjacent only to Living Room.
+//     It does NOT touch Master Bedroom (the closet between them has a wall).
+//   • Living Room sits across the top-right and feeds into the Corridor below.
+//   • Corridor is the central hub. It touches Living Room (north), Master
+//     Bedroom (west), Office (south), and Cat Room (south).
+//   • Office and Cat Room sit at the bottom, sharing a wall.
+//
+// House aspect is close to square (~830×870 in the Roborock map); using a
+// 700×620 SVG viewBox for breathing room around the dashboard chrome.
 
 export interface RoomConfig {
   name: string;
@@ -30,23 +36,9 @@ export const floorPlanConfig = {
   viewBox: "0 0 700 620",
   rooms: [
     {
-      name: "Living Room",
-      // Top-right area; L-shape simplified to a single block with a notch on the
-      // bottom-left where the corridor enters.
-      polygon: [
-        [320, 50],
-        [660, 50],
-        [660, 320],
-        [470, 320],
-        [470, 290],
-        [320, 290],
-      ] as [number, number][],
-      color: "#1a2840",
-    },
-    {
       name: "Kitchen",
-      // Top-left; bounded on the left by the "Cliff No-Go Zone" line.
-      // Nothing west of x=70 in this map is real floor space.
+      // Top-left island. Bounded on the west by the "Cliff No-Go Zone".
+      // Adjacent only to Living Room on the east at x=320.
       polygon: [
         [70, 90],
         [320, 90],
@@ -56,17 +48,24 @@ export const floorPlanConfig = {
       color: "#3a2e10",
     },
     {
+      name: "Living Room",
+      // Top stripe across the right two-thirds. South edge feeds into Corridor.
+      polygon: [
+        [320, 50],
+        [660, 50],
+        [660, 290],
+        [320, 290],
+      ] as [number, number][],
+      color: "#1a2840",
+    },
+    {
       name: "Master Bedroom",
-      // Left-center; closet appendage on right side folded into the polygon
-      // (the appendage extends up between Kitchen and the Corridor entry).
+      // Left rectangle, slightly south of Kitchen (gap = closet/wall, not drawn).
+      // East edge meets Corridor at x=340 from y=320 to y=450.
       polygon: [
         [40, 320],
-        [260, 320],
-        [260, 300],
-        [320, 300],
-        [320, 410],
-        [350, 410],
-        [350, 560],
+        [340, 320],
+        [340, 560],
         [40, 560],
       ] as [number, number][],
       color: "#103a32",
@@ -75,10 +74,10 @@ export const floorPlanConfig = {
       name: "Office",
       // Bottom-center; "Josh office" in the Roborock map.
       polygon: [
-        [380, 450],
-        [540, 450],
-        [540, 600],
-        [380, 600],
+        [370, 450],
+        [510, 450],
+        [510, 600],
+        [370, 600],
       ] as [number, number][],
       color: "#1a2a20",
     },
@@ -86,37 +85,37 @@ export const floorPlanConfig = {
       name: "Cat Room",
       // Bottom-right; "Jade office" in the Roborock map.
       polygon: [
-        [540, 450],
+        [510, 450],
         [690, 450],
         [690, 600],
-        [540, 600],
+        [510, 600],
       ] as [number, number][],
       color: "#2a201a",
     },
   ] satisfies RoomConfig[],
   /**
-   * Corridor — visual context only, NOT a tracked room. The 6th ESP32 ("spare")
-   * will likely live here to give the fingerprint algorithm signal coverage of
-   * the seam between the bedroom/office/cat-room transitions.
+   * Corridor — the central hub. Touches Living Room (north at y=290),
+   * Master Bedroom (west at x=340), Office (south at y=450, x=370–510),
+   * and Cat Room (south at y=450, x=510–590). Visual context only; NOT a
+   * tracked room. The 6th ESP32 (spare) sits here.
    */
   hallway: {
     polygon: [
-      [350, 320],
-      [470, 320],
-      [470, 450],
-      [350, 450],
+      [340, 290],
+      [590, 290],
+      [590, 450],
+      [340, 450],
     ] as [number, number][],
   },
   nodes: [
-    // Placeholder positions — replace with actual outlet locations once the
-    // ESP32s are named in the SETUP tab. Each node's `id` here is also a
-    // placeholder; real chip-derived IDs (node-XXXXXXXX) take over at install.
-    { id: "node-00000001", pos: [200, 200] as [number, number] }, // Kitchen
-    { id: "node-00000002", pos: [490, 175] as [number, number] }, // Living Room
-    { id: "node-00000003", pos: [180, 440] as [number, number] }, // Master Bedroom
-    { id: "node-00000004", pos: [460, 525] as [number, number] }, // Office
-    { id: "node-00000005", pos: [615, 525] as [number, number] }, // Cat Room
-    { id: "node-00000006", pos: [410, 385] as [number, number] }, // Corridor (spare)
+    // Placeholder positions in each room's approximate center. Real chip-derived
+    // IDs (node-XXXXXXXX) and outlet-precise positions take over at install.
+    { id: "node-00000001", pos: [195, 190] as [number, number] }, // Kitchen
+    { id: "node-00000002", pos: [490, 170] as [number, number] }, // Living Room
+    { id: "node-00000003", pos: [190, 440] as [number, number] }, // Master Bedroom
+    { id: "node-00000004", pos: [440, 525] as [number, number] }, // Office
+    { id: "node-00000005", pos: [600, 525] as [number, number] }, // Cat Room
+    { id: "node-00000006", pos: [465, 370] as [number, number] }, // Corridor (spare)
   ] satisfies NodeConfig[],
 };
 
