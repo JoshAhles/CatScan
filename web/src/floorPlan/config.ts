@@ -38,7 +38,7 @@ export interface DoorConfig {
 }
 
 export const floorPlanConfig = {
-  viewBox: "0 0 700 620",
+  viewBox: "30 40 670 570",
   rooms: [
     {
       name: "Kitchen",

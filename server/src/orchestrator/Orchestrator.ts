@@ -158,7 +158,7 @@ export class Orchestrator {
     const event: ServerEvent = {
       type: "nodeDiscovered",
       nodeId: nodeId as `node-${string}`,
-      at: this.cfg.nowSec() * 1000,
+      at: this.cfg.nowSec(),
     };
     this.ws.broadcast(event);
   }
@@ -210,7 +210,7 @@ export class Orchestrator {
               type: "centroidSaved",
               room: stopResult.room as string & { length: number },
               sampleCount: stopResult.samples,
-              at: Date.now(),
+              at: this.cfg.nowSec(),
             };
             this.ws.broadcast(savedEvent);
             // Reload centroids into decider
@@ -287,7 +287,7 @@ export class Orchestrator {
       const event: ServerEvent = {
         type: "identityAmbiguous",
         candidates: result.candidates,
-        at: Date.now(),
+        at: this.cfg.nowSec(),
       };
       this.ws.broadcast(event);
     }
@@ -317,7 +317,7 @@ export class Orchestrator {
     const cats = this.store.listCats();
     const nodes = this.store.listNodes();
     const centroids = this.store.loadCentroids();
-    const ts = Date.now();
+    const ts = this.cfg.nowSec();
 
     const catStates = cats.map(c => {
       const currentState = this.store.currentRoomState(c.id as number);

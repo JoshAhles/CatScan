@@ -23,7 +23,6 @@ function TrackingPanel({ drawerOpen, isMobile }: TrackingPanelProps) {
   return (
     <aside className={drawerClass} data-testid="tracking-panel" aria-label="Tracked cats">
       <div className={styles.panelHeader}>
-        <span className={styles.panelTitle}>◢ TRACKING</span>
         <span className={styles.panelMeta}>
           {cats.length} <span className={styles.panelMetaDim}>CATS</span>
         </span>
@@ -41,7 +40,6 @@ function TrackingPanel({ drawerOpen, isMobile }: TrackingPanelProps) {
 
 export function LiveView() {
   const cats = useWsStore((s) => s.cats);
-  const nodes = useWsStore((s) => s.nodes);
   const isMobile = useMediaQuery("(max-width: 768px)");
   const isMidWidth = useMediaQuery("(max-width: 1180px)");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -51,7 +49,7 @@ export function LiveView() {
       <div className={styles.layout} data-testid="live-view">
         <TrackingPanel drawerOpen={drawerOpen} isMobile={isMobile} />
         <main className={styles.floorPlanArea}>
-          <FloorPlan cats={cats} nodes={nodes} />
+          <FloorPlan cats={cats} />
         </main>
         {!isMidWidth && <Telemetry />}
         <ActivityLog />

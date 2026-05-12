@@ -7,6 +7,7 @@ interface HUDProps {
   sessionTime: string;
   uptimeSec: number;
   wsStatus?: ConnectionStatus;
+  demoMode?: boolean;
 }
 
 // "CatScan" — all glyphs in the same ANSI Shadow style, but the "at" and
@@ -82,7 +83,7 @@ function StatusPill({ status }: { status: ConnectionStatus }) {
   );
 }
 
-export function HUD({ onlineNodeCount, totalNodes, sessionTime, wsStatus = "open" }: HUDProps) {
+export function HUD({ onlineNodeCount, totalNodes, sessionTime, wsStatus = "open", demoMode = false }: HUDProps) {
   return (
     <header className={styles.headerBlock} aria-label="CatScan dashboard header">
       <div className={styles.logoWrapper} aria-label="CatScan">
@@ -109,6 +110,7 @@ export function HUD({ onlineNodeCount, totalNodes, sessionTime, wsStatus = "open
           <span className={styles.headerStatLabel}>LOCAL</span>
         </div>
         <div className={styles.headerStatusBlock}>
+          {demoMode && <span className={styles.demoPill}>DEMO</span>}
           <StatusPill status={wsStatus} />
         </div>
       </div>

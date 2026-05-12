@@ -21,7 +21,6 @@ export function Telemetry() {
   return (
     <aside className={styles.telemetryPanel} aria-label="Node telemetry">
       <div className={styles.panelHeader}>
-        <span className={styles.panelTitle}>◢ NODE TELEMETRY</span>
         <span className={styles.panelMeta}>
           {online}/{nodes.length} <span className={styles.panelMetaDim}>ONLINE</span>
         </span>

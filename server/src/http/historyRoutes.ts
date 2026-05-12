@@ -12,7 +12,12 @@ export function registerHistory(app: FastifyInstance, store: EventStore) {
     }
     const dayStart = Math.floor(new Date(date + "T00:00:00Z").getTime() / 1000);
     const dayEnd = dayStart + 86400;
-    return store.timelineForDay(Number(catId), dayStart, dayEnd);
+    const rows = store.timelineForDay(Number(catId), dayStart, dayEnd);
+    return rows.map((r) => ({
+      room: r.room as string,
+      from: r.started_at as number,
+      to: (r.ended_at ?? null) as number | null,
+    }));
   });
 
   app.get("/api/heatmap", async (req, reply) => {
@@ -20,6 +25,7 @@ export function registerHistory(app: FastifyInstance, store: EventStore) {
     if (!catId || !from || !to) {
       return reply.code(400).send({ error: "catId, from, and to are required" });
     }
-    return store.heatmap(Number(catId), Number(from), Number(to));
+    const rows = store.heatmap(Number(catId), Number(from), Number(to));
+    return rows.map((r) => ({ room: r.room, durationSec: r.seconds }));
   });
 }

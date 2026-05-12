@@ -1,4 +1,7 @@
-const token = (window as unknown as Record<string, unknown>)["__CATSCAN_TOKEN__"] as string ?? "";
+const token =
+  ((window as unknown as Record<string, unknown>)["__CATSCAN_TOKEN__"] as string) ||
+  (import.meta.env["VITE_CATSCAN_TOKEN"] as string) ||
+  "";
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {

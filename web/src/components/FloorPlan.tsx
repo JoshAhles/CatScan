@@ -1,13 +1,18 @@
+import type { ReactNode } from "react";
 import { floorPlanConfig, type DoorConfig } from "../floorPlan/config";
 import { roomCenter } from "../floorPlan/geometry";
-import type { CatState, NodeState } from "../types/contracts";
+import type { CatState } from "../types/contracts";
 import { CatMarker } from "./CatMarker";
-import { NodeMarker } from "./NodeMarker";
 import styles from "../styles/mission.module.css";
 
 interface FloorPlanProps {
   cats: CatState[];
-  nodes: NodeState[];
+  /**
+   * Optional SVG fragment rendered between room fills and walls. Used by
+   * HeatmapView to paint heat blobs under the architectural geometry so the
+   * room walls and labels remain crisp on top.
+   */
+  heatLayer?: ReactNode;
 }
 
 function roomBBox(polygon: [number, number][]) {
@@ -85,22 +90,82 @@ function wallPathWithDoorGaps(polygon: [number, number][], doors: DoorConfig[]):
   return out.join(" ");
 }
 
-export function FloorPlan({ cats, nodes }: FloorPlanProps) {
-  const { viewBox, rooms, hallway, nodes: nodeConfigs, doors } = floorPlanConfig;
+/** Spacing (in SVG units) between cat-marker centers when multiple cats share
+ *  a room. Each marker is ~22px diameter with a ~26px outer radar ring, so 36
+ *  keeps the radar rings from visually colliding. */
+const CAT_GROUP_GAP = 36;
 
-  function catPosition(cat: CatState): [number, number] {
-    if (!cat.silent && cat.room) {
-      const roomCfg = rooms.find((r) => r.name === cat.room);
-      if (roomCfg) return roomCenter(roomCfg.polygon);
-    }
-    const fallbackRoom = cat.silent && cat.lastRoom
-      ? rooms.find((r) => r.name === cat.lastRoom)
-      : null;
-    if (fallbackRoom) return roomCenter(fallbackRoom.polygon);
-    return [400, 300];
+export function FloorPlan({ cats, heatLayer }: FloorPlanProps) {
+  const { viewBox, rooms, hallway, doors } = floorPlanConfig;
+
+  function roomForCat(cat: CatState) {
+    if (!cat.silent && cat.room) return rooms.find((r) => r.name === cat.room) ?? null;
+    if (cat.silent && cat.lastRoom) return rooms.find((r) => r.name === cat.lastRoom) ?? null;
+    return null;
   }
 
-  const [, , vbWStr, vbHStr] = viewBox.split(" ");
+  /**
+   * Bucket cats by which room they're currently displayed in, then position
+   * each group along its room's longer axis so markers never overlap. A solo
+   * cat lands at the room centroid; pairs/triples spread symmetrically.
+   */
+  function computePositions(): Map<number, [number, number]> {
+    const groups = new Map<string, CatState[]>();
+    for (const cat of cats) {
+      const room = roomForCat(cat);
+      const key = room ? room.name : "__noroom__";
+      const list = groups.get(key) ?? [];
+      list.push(cat);
+      groups.set(key, list);
+    }
+
+    const positions = new Map<number, [number, number]>();
+    for (const [key, group] of groups) {
+      const room = key === "__noroom__" ? null : rooms.find((r) => r.name === key) ?? null;
+      if (!room) {
+        // Off-plan fallback — stack vertically in the SVG center.
+        group.forEach((c, i) => {
+          positions.set(c.id, [400, 280 + i * CAT_GROUP_GAP]);
+        });
+        continue;
+      }
+
+      const [cx, cy] = roomCenter(room.polygon);
+      if (group.length === 1) {
+        positions.set(group[0]!.id, [cx, cy]);
+        continue;
+      }
+
+      // Spread along the room's longer axis so wider rooms get horizontal
+      // arrangement and tall rooms get vertical — keeps markers comfortably
+      // inside the room bounds.
+      const bb = roomBBox(room.polygon);
+      const horizontal = bb.w >= bb.h;
+      // Available span minus a margin so markers don't kiss the walls.
+      const axisSpan = (horizontal ? bb.w : bb.h) - 40;
+      const desiredSpan = CAT_GROUP_GAP * (group.length - 1);
+      const span = Math.min(axisSpan, desiredSpan);
+      const step = group.length > 1 ? span / (group.length - 1) : 0;
+      const start = -span / 2;
+
+      // Deterministic order — sort by cat id so the same cats land in the
+      // same relative spots across renders.
+      const ordered = [...group].sort((a, b) => a.id - b.id);
+      ordered.forEach((cat, i) => {
+        const offset = start + i * step;
+        const x = horizontal ? cx + offset : cx;
+        const y = horizontal ? cy : cy + offset;
+        positions.set(cat.id, [x, y]);
+      });
+    }
+    return positions;
+  }
+
+  const catPositions = computePositions();
+
+  const [vbXStr, vbYStr, vbWStr, vbHStr] = viewBox.split(" ");
+  const vbX = Number(vbXStr);
+  const vbY = Number(vbYStr);
   const vbW = Number(vbWStr);
   const vbH = Number(vbHStr);
 
@@ -110,6 +175,7 @@ export function FloorPlan({ cats, nodes }: FloorPlanProps) {
       className={styles.floorPlanSvg}
       xmlns="http://www.w3.org/2000/svg"
       preserveAspectRatio="xMidYMid meet"
+      style={{ aspectRatio: `${vbW} / ${vbH}` }}
     >
       <defs>
         <pattern id="cs-grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -125,6 +191,10 @@ export function FloorPlan({ cats, nodes }: FloorPlanProps) {
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        {/* Generous Gaussian for heat blobs — referenced by HeatmapView. */}
+        <filter id="cs-heat-blur" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="14" />
+        </filter>
         <linearGradient id="cs-scanline" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#1ee0c9" stopOpacity="0" />
           <stop offset="50%" stopColor="#1ee0c9" stopOpacity="0.06" />
@@ -138,11 +208,11 @@ export function FloorPlan({ cats, nodes }: FloorPlanProps) {
       <rect width="100%" height="100%" fill="url(#cs-grid-major)" />
 
       {/* Subtle scan-line sweep */}
-      <rect x="0" y={-vbH * 0.08} width={vbW} height={vbH * 0.08} fill="url(#cs-scanline)">
+      <rect x={vbX} y={vbY - vbH * 0.08} width={vbW} height={vbH * 0.08} fill="url(#cs-scanline)">
         <animate
           attributeName="y"
-          from={-vbH * 0.08}
-          to={vbH}
+          from={vbY - vbH * 0.08}
+          to={vbY + vbH}
           dur="14s"
           repeatCount="indefinite"
         />
@@ -154,35 +224,31 @@ export function FloorPlan({ cats, nodes }: FloorPlanProps) {
         className={styles.hallway}
       />
 
-      {/* Room fills */}
-      {rooms.map((room, i) => {
-        const bb = roomBBox(room.polygon);
-        const code = `R${String(i + 1).padStart(2, "0")}`;
-        return (
-          <g key={room.name}>
-            <polygon
-              points={polygonPath(room.polygon)}
-              className={styles.roomFill}
-              style={{ fill: room.color, fillOpacity: 0.32 }}
-            />
-            {/* Wall path with door gaps */}
-            <path
-              d={wallPathWithDoorGaps(room.polygon, doors)}
-              className={styles.roomWall}
-              filter="url(#cs-wall-glow)"
-              fill="none"
-            />
-            {/* Architectural label in upper-left corner */}
-            <g className={styles.roomLabelGroup} transform={`translate(${bb.x + 12}, ${bb.y + 18})`}>
-              <text className={styles.roomCode}>{code}</text>
-              <text className={styles.roomName} y={14}>
-                <tspan className={styles.roomEmoji}>{room.emoji}</tspan>
-                <tspan dx={6}>{room.name.toUpperCase()}</tspan>
-              </text>
-            </g>
-          </g>
-        );
-      })}
+      {/* Pass 1: room fills (color tints only — geometry painted later so heat
+          can be slotted in between without obscuring walls). */}
+      {rooms.map((room) => (
+        <polygon
+          key={`fill-${room.name}`}
+          points={polygonPath(room.polygon)}
+          className={styles.roomFill}
+          style={{ fill: room.color, fillOpacity: 0.32 }}
+        />
+      ))}
+
+      {/* Optional heat overlay — sits between room fills and walls so the
+          architectural geometry stays sharp above the diffused heat. */}
+      {heatLayer}
+
+      {/* Pass 2: room walls with door gaps. */}
+      {rooms.map((room) => (
+        <path
+          key={`wall-${room.name}`}
+          d={wallPathWithDoorGaps(room.polygon, doors)}
+          className={styles.roomWall}
+          filter="url(#cs-wall-glow)"
+          fill="none"
+        />
+      ))}
 
       {/* Hallway outline + tag — dashed walls also receive door gaps */}
       <path
@@ -198,34 +264,31 @@ export function FloorPlan({ cats, nodes }: FloorPlanProps) {
         · HALL ·
       </text>
 
-      {/* ESP32 node markers */}
-      {nodeConfigs.map((nc, idx) => {
-        const liveNode = nodes.find((n) => n.id === nc.id);
-        if (!liveNode) return null;
+      {/* Pass 3: room labels (top of geometry, below cat markers). */}
+      {rooms.map((room, i) => {
+        const bb = roomBBox(room.polygon);
+        const code = `R${String(i + 1).padStart(2, "0")}`;
         return (
-          <NodeMarker
-            key={nc.id}
-            node={liveNode}
-            x={nc.pos[0]}
-            y={nc.pos[1]}
-            index={idx + 1}
-          />
+          <g
+            key={`label-${room.name}`}
+            className={styles.roomLabelGroup}
+            transform={`translate(${bb.x + 12}, ${bb.y + 18})`}
+          >
+            <text className={styles.roomCode}>{code}</text>
+            <text className={styles.roomName} y={14}>
+              <tspan className={styles.roomEmoji}>{room.emoji}</tspan>
+              <tspan dx={6}>{room.name.toUpperCase()}</tspan>
+            </text>
+          </g>
         );
       })}
 
       {/* Cat markers (top of stack) */}
       {cats.map((cat) => {
-        const [x, y] = catPosition(cat);
+        const [x, y] = catPositions.get(cat.id) ?? [400, 300];
         return <CatMarker key={cat.id} cat={cat} x={x} y={y} />;
       })}
 
-      {/* Frame corner brackets */}
-      <g className={styles.frameCorners} fill="none" stroke="#1ee0c9" strokeWidth="1.2" opacity="0.65">
-        <path d={`M 4 18 L 4 4 L 18 4`} />
-        <path d={`M ${vbW - 18} 4 L ${vbW - 4} 4 L ${vbW - 4} 18`} />
-        <path d={`M 4 ${vbH - 18} L 4 ${vbH - 4} L 18 ${vbH - 4}`} />
-        <path d={`M ${vbW - 4} ${vbH - 18} L ${vbW - 4} ${vbH - 4} L ${vbW - 18} ${vbH - 4}`} />
-      </g>
     </svg>
   );
 }

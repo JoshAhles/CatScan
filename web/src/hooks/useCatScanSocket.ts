@@ -13,7 +13,7 @@ const STATUS_MAP: Record<ReadyState, ConnectionStatus> = {
   [ReadyState.UNINSTANTIATED]: "connecting",
 };
 
-export function useCatScanSocket(url: string): ConnectionStatus {
+export function useCatScanSocket(url: string | null): ConnectionStatus {
   const applyEvent = useWsStore((s) => s.applyEvent);
 
   const onMessage = useCallback(
@@ -33,6 +33,7 @@ export function useCatScanSocket(url: string): ConnectionStatus {
     [applyEvent]
   );
 
+  // Passing `null` to react-use-websocket disables the connection entirely.
   const { readyState } = useWebSocket(url, {
     onMessage,
     shouldReconnect: () => true,
