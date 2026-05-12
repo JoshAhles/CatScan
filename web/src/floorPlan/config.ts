@@ -94,19 +94,18 @@ export const floorPlanConfig = {
     },
   ] satisfies RoomConfig[],
   /**
-   * Corridor — narrow connector strip between Living Room (north) and the
-   * Office/Cat Room boundary (south). Doors to Master Bedroom (west), Office
-   * (south-southwest), and Cat Room (south-southeast) are implicit in the
-   * gaps — drawing them as full shared walls would overstate the corridor's
-   * actual size. Cats transit through but don't dwell, so visual prominence
-   * is intentionally minimal. Not a tracked room.
+   * Corridor — wide-but-short connector strip between Living Room (north) and
+   * the Office/Cat Room boundary (south). Width matches the original ~250 px
+   * span; height reduced to ~90 px because cats transit through rather than
+   * dwell. Doors to Master Bedroom (west) and the four connected rooms are
+   * implicit in the small gaps around the polygon. Not a tracked room.
    */
   hallway: {
     polygon: [
-      [390, 290],
-      [490, 290],
-      [490, 450],
-      [390, 450],
+      [340, 330],
+      [590, 330],
+      [590, 420],
+      [340, 420],
     ] as [number, number][],
   },
   nodes: [
@@ -117,7 +116,7 @@ export const floorPlanConfig = {
     { id: "node-00000003", pos: [190, 440] as [number, number] }, // Master Bedroom
     { id: "node-00000004", pos: [440, 525] as [number, number] }, // Office
     { id: "node-00000005", pos: [600, 525] as [number, number] }, // Cat Room
-    { id: "node-00000006", pos: [440, 370] as [number, number] }, // Corridor (spare)
+    { id: "node-00000006", pos: [465, 375] as [number, number] }, // Corridor (spare)
   ] satisfies NodeConfig[],
 };
 
