@@ -45,21 +45,28 @@ export function HeatmapView({ catId, from, to }: HeatmapViewProps) {
           const alpha = 0.1 + intensity * 0.7;
           return (
             <g key={room.name}>
+              {/* Subtle room tint (same as LiveView) */}
               <polygon
                 points={room.polygon.map(([x, y]) => `${x},${y}`).join(" ")}
-                className={styles.room}
-                style={{ fill: room.color }}
+                className={styles.roomFill}
+                style={{ fill: room.color, fillOpacity: 0.12 }}
               />
-              {/* Heatmap overlay */}
+              {/* Heatmap overlay — warm amber so it doesn't compete with cyan chrome */}
               <polygon
                 points={room.polygon.map(([x, y]) => `${x},${y}`).join(" ")}
-                fill={`rgba(30, 224, 201, ${alpha})`}
+                fill={`rgba(255, 204, 77, ${alpha})`}
                 style={{ pointerEvents: "none" }}
+              />
+              {/* Wall */}
+              <polygon
+                points={room.polygon.map(([x, y]) => `${x},${y}`).join(" ")}
+                className={styles.roomWall}
               />
               <text
                 x={roomCenter(room.polygon)[0]}
                 y={roomCenter(room.polygon)[1]}
-                className={styles.roomLabel}
+                className={styles.roomName}
+                style={{ textAnchor: "middle" }}
               >
                 {room.name.toUpperCase()}
               </text>
