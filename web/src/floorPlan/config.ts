@@ -3,20 +3,17 @@
 // Room Decider works in RSSI fingerprint space, not in pixel space.
 //
 // Tracked rooms (5):  Living Room, Kitchen, Master Bedroom, Office, Cat Room.
-// Visual-only space:  Corridor (drawn as `hallway`).
+// Visual-only space:  Corridor (drawn as `hallway`, short and wide — cats transit).
 // Skipped:            Bathroom (per user); master-bedroom closet (folded into
-//                     Master Bedroom polygon for visual simplicity).
+//                     the Master Bedroom polygon for visual simplicity).
 //
-// Connectivity (matches the user's home):
-//   • Kitchen is an island on the top-left — adjacent only to Living Room.
-//     It does NOT touch Master Bedroom (the closet between them has a wall).
-//   • Living Room sits across the top-right and feeds into the Corridor below.
-//   • Corridor is the central hub. It touches Living Room (north), Master
-//     Bedroom (west), Office (south), and Cat Room (south).
-//   • Office and Cat Room sit at the bottom, sharing a wall.
-//
-// House aspect is close to square (~830×870 in the Roborock map); using a
-// 700×620 SVG viewBox for breathing room around the dashboard chrome.
+// Connectivity (matches the user's home; all adjacencies are physically modeled):
+//   • Kitchen is an island on the top-left — adjacent only to Living Room (east).
+//   • Living Room sits across the top-right; south edge meets both Master
+//     Bedroom and the Corridor.
+//   • Corridor is the central hub. Its full perimeter contacts Living Room
+//     (north), Master Bedroom (west), Office (south), and Cat Room (south).
+//   • Office and Cat Room sit at the bottom, sharing a wall at x=510.
 
 export interface RoomConfig {
   name: string;
@@ -37,8 +34,7 @@ export const floorPlanConfig = {
   rooms: [
     {
       name: "Kitchen",
-      // Top-left island. Bounded on the west by the "Cliff No-Go Zone".
-      // Adjacent only to Living Room on the east at x=320.
+      // Top-left island. Adjacent only to Living Room on the east at x=320.
       polygon: [
         [70, 90],
         [320, 90],
@@ -49,22 +45,23 @@ export const floorPlanConfig = {
     },
     {
       name: "Living Room",
-      // Top stripe across the right two-thirds. South edge feeds into Corridor.
+      // Top stripe across the right two-thirds; south edge at y=330 meets
+      // Master Bedroom (x=320–340) and the Corridor (x=340–590).
       polygon: [
         [320, 50],
         [660, 50],
-        [660, 290],
-        [320, 290],
+        [660, 330],
+        [320, 330],
       ] as [number, number][],
       color: "#1a2840",
     },
     {
       name: "Master Bedroom",
-      // Left rectangle, slightly south of Kitchen (gap = closet/wall, not drawn).
-      // East edge meets Corridor at x=340 from y=320 to y=450.
+      // Left rectangle; north edge at y=330 meets Living Room (x=320–340)
+      // briefly and east edge at x=340 meets the Corridor (y=330–420).
       polygon: [
-        [40, 320],
-        [340, 320],
+        [40, 330],
+        [340, 330],
         [340, 560],
         [40, 560],
       ] as [number, number][],
@@ -72,10 +69,10 @@ export const floorPlanConfig = {
     },
     {
       name: "Office",
-      // Bottom-center; "Josh office" in the Roborock map.
+      // Bottom-center; north edge at y=420 meets the Corridor (x=370–510).
       polygon: [
-        [370, 450],
-        [510, 450],
+        [370, 420],
+        [510, 420],
         [510, 600],
         [370, 600],
       ] as [number, number][],
@@ -83,10 +80,11 @@ export const floorPlanConfig = {
     },
     {
       name: "Cat Room",
-      // Bottom-right; "Jade office" in the Roborock map.
+      // Bottom-right; north edge at y=420 meets the Corridor (x=510–590) and
+      // continues east as exterior wall to x=690.
       polygon: [
-        [510, 450],
-        [690, 450],
+        [510, 420],
+        [690, 420],
         [690, 600],
         [510, 600],
       ] as [number, number][],
@@ -94,11 +92,9 @@ export const floorPlanConfig = {
     },
   ] satisfies RoomConfig[],
   /**
-   * Corridor — wide-but-short connector strip between Living Room (north) and
-   * the Office/Cat Room boundary (south). Width matches the original ~250 px
-   * span; height reduced to ~90 px because cats transit through rather than
-   * dwell. Doors to Master Bedroom (west) and the four connected rooms are
-   * implicit in the small gaps around the polygon. Not a tracked room.
+   * Corridor — wide-but-short connector between Living Room (north), Master
+   * Bedroom (west), Office (south-southwest), and Cat Room (south-southeast).
+   * All four edges share polygon boundaries with their neighbors. Not tracked.
    */
   hallway: {
     polygon: [
@@ -109,13 +105,11 @@ export const floorPlanConfig = {
     ] as [number, number][],
   },
   nodes: [
-    // Placeholder positions in each room's approximate center. Real chip-derived
-    // IDs (node-XXXXXXXX) and outlet-precise positions take over at install.
     { id: "node-00000001", pos: [195, 190] as [number, number] }, // Kitchen
-    { id: "node-00000002", pos: [490, 170] as [number, number] }, // Living Room
-    { id: "node-00000003", pos: [190, 440] as [number, number] }, // Master Bedroom
-    { id: "node-00000004", pos: [440, 525] as [number, number] }, // Office
-    { id: "node-00000005", pos: [600, 525] as [number, number] }, // Cat Room
+    { id: "node-00000002", pos: [490, 190] as [number, number] }, // Living Room
+    { id: "node-00000003", pos: [190, 445] as [number, number] }, // Master Bedroom
+    { id: "node-00000004", pos: [440, 510] as [number, number] }, // Office
+    { id: "node-00000005", pos: [600, 510] as [number, number] }, // Cat Room
     { id: "node-00000006", pos: [465, 375] as [number, number] }, // Corridor (spare)
   ] satisfies NodeConfig[],
 };
