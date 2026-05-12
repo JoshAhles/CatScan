@@ -1,16 +1,6 @@
 import { useWsStore } from "../stores/wsStore";
+import { rssiBars } from "./rssi";
 import styles from "../styles/mission.module.css";
-
-function rssiBars(rssi: number | undefined): number {
-  if (rssi === undefined) return 0;
-  // -45 → 5 bars, -60 → 4, -75 → 3, -85 → 2, -95 → 1, below → 0
-  if (rssi >= -50) return 5;
-  if (rssi >= -65) return 4;
-  if (rssi >= -78) return 3;
-  if (rssi >= -88) return 2;
-  if (rssi >= -98) return 1;
-  return 0;
-}
 
 export function Telemetry() {
   const nodes = useWsStore((s) => s.nodes);

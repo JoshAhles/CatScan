@@ -1,6 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import { create } from "zustand";
 import type { CatState, NodeState, CalibrationMap, ServerEvent } from "../types/contracts";
+import { SLEEP_THRESHOLD_SEC, formatDuration } from "../lib/duration";
 
 export type ActivityTone = "accent" | "dim" | "warn" | "danger";
 
@@ -13,15 +14,32 @@ export interface ActivityEntry {
   tone: ActivityTone;
 }
 
+/**
+ * Structured transition log — exists alongside the message-based activity
+ * feed so consumers (notably the cat detail panel) can filter / aggregate
+ * without parsing display strings. Newest first.
+ */
+export interface TransitionRecord {
+  catId: number;
+  from: string;
+  to: string;
+  at: number;
+}
+
 export interface WsState {
   cats: CatState[];
   nodes: NodeState[];
   calibration: CalibrationMap;
   events: ActivityEntry[];
+  transitions: TransitionRecord[];
+  /** Which cat's detail panel is open; null = closed. */
+  selectedCatId: number | null;
   applyEvent: (ev: ServerEvent) => void;
+  setSelectedCatId: (id: number | null) => void;
 }
 
 const MAX_EVENTS = 100;
+const MAX_TRANSITIONS = 500;
 let nextEventId = 1;
 
 function buildApplyEvent(
@@ -43,24 +61,63 @@ function buildApplyEvent(
 
   return (ev: ServerEvent) => {
     switch (ev.type) {
-      case "snapshot":
-        set({ cats: ev.cats, nodes: ev.nodes, calibration: ev.calibration });
+      case "snapshot": {
+        // If the previously-selected cat isn't in the new snapshot (e.g.
+        // after a reconnect where bindings changed), drop the selection so
+        // the detail panel doesn't render against stale state.
+        const prevSelected = get().selectedCatId;
+        const stillExists =
+          prevSelected != null && ev.cats.some((c) => c.id === prevSelected);
+        set({
+          cats: ev.cats,
+          nodes: ev.nodes,
+          calibration: ev.calibration,
+          ...(stillExists ? {} : { selectedCatId: null }),
+        });
         break;
-      case "transition":
+      }
+      case "transition": {
+        // Detect whether this transition is *ending* a long dwell — used to
+        // annotate the activity feed with sleep info.
+        const movingCat = get().cats.find((c) => c.id === ev.catId);
+        const prevSince = movingCat && !movingCat.silent ? movingCat.since : null;
+        const dwell = prevSince != null ? ev.at - prevSince : 0;
+        const wasSleeping = dwell >= SLEEP_THRESHOLD_SEC;
+
         logActivity({
           ts: ev.at,
-          icon: "→",
-          message: `${catName(ev.catId)} ${ev.from.toUpperCase()} → ${ev.to.toUpperCase()}`,
+          icon: wasSleeping ? "z" : "→",
+          message: wasSleeping
+            ? `${catName(ev.catId)} slept in ${ev.from.toUpperCase()} · ${formatDuration(dwell)} → ${ev.to.toUpperCase()}`
+            : `${catName(ev.catId)} ${ev.from.toUpperCase()} → ${ev.to.toUpperCase()}`,
           tone: "accent",
         });
-        set({
-          cats: get().cats.map((c) =>
+
+        const tr: TransitionRecord = { catId: ev.catId, from: ev.from, to: ev.to, at: ev.at };
+        set((s) => ({
+          transitions: [tr, ...s.transitions].slice(0, MAX_TRANSITIONS),
+          cats: s.cats.map((c) =>
             c.id === ev.catId
               ? { ...c, room: ev.to, since: ev.at, silent: false, lastRoom: null, lastSeen: null }
               : c
           ),
-        });
+        }));
+
+        // After the move: if the destination room now holds 2+ visible cats,
+        // log a single "TOGETHER" activity entry. Fires only on the arrival
+        // event, so it appears once per gathering rather than repeatedly.
+        const updated = get().cats;
+        const inRoom = updated.filter((c) => !c.silent && c.room === ev.to);
+        if (inRoom.length >= 2) {
+          logActivity({
+            ts: ev.at,
+            icon: "+",
+            message: `${inRoom.map((c) => c.name.toUpperCase()).join(" + ")} TOGETHER · ${ev.to.toUpperCase()}`,
+            tone: "accent",
+          });
+        }
         break;
+      }
       case "silent":
         logActivity({
           ts: ev.lastSeen,
@@ -169,7 +226,10 @@ export function createWsStore() {
     nodes: [],
     calibration: {},
     events: [],
+    transitions: [],
+    selectedCatId: null,
     applyEvent: buildApplyEvent(set as never, get as never),
+    setSelectedCatId: (id) => set({ selectedCatId: id }),
   }));
 }
 
@@ -178,5 +238,8 @@ export const useWsStore = create<WsState>((set, get) => ({
   nodes: [],
   calibration: {},
   events: [],
+  transitions: [],
+  selectedCatId: null,
   applyEvent: buildApplyEvent(set as never, get as never),
+  setSelectedCatId: (id) => set({ selectedCatId: id }),
 }));

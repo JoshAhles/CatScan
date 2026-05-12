@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { HUD } from "./components/HUD";
+import { SilentAlert } from "./components/SilentAlert";
 import { TabBar } from "./components/TabBar";
 import { LiveView } from "./views/LiveView";
 import { HeatmapView } from "./views/HeatmapView";
@@ -21,14 +22,16 @@ const WS_URL =
       }`
     : "ws://localhost:8787/ws";
 
-
 export default function App() {
   const [tab, setTab] = useState<Tab>("LIVE");
-  const [clock, setClock] = useState(() =>
-    new Date().toLocaleTimeString("en-US", { hour12: false })
+
+  // Primitive selectors — App only re-renders when the *count* changes, not
+  // on every RSSI tick that mutates `nodes`. (Previously this subscribed to
+  // the whole `nodes` array and cascaded re-renders through the tree.)
+  const onlineCount = useWsStore((s) => s.nodes.filter((n) => n.status === "online").length);
+  const totalNodes = useWsStore((s) =>
+    Math.max(floorPlanConfig.nodes.length, s.nodes.length),
   );
-  const nodes = useWsStore((s) => s.nodes);
-  const onlineCount = nodes.filter((n) => n.status === "online").length;
 
   // Live mode: single shared WS keeps the store fresh across tabs.
   // Demo mode: skip WS entirely; a synthetic event loop drives the store.
@@ -41,23 +44,16 @@ export default function App() {
     return dispose;
   }, []);
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setClock(new Date().toLocaleTimeString("en-US", { hour12: false }));
-    }, 1000);
-    return () => clearInterval(id);
-  }, []);
-
   return (
     <div className={styles.root}>
       <HUD
         onlineNodeCount={onlineCount}
-        totalNodes={Math.max(floorPlanConfig.nodes.length, nodes.length)}
-        sessionTime={clock}
+        totalNodes={totalNodes}
         uptimeSec={0}
         wsStatus={wsStatus}
         demoMode={DEMO_MODE}
       />
+      <SilentAlert />
       <TabBar tabs={TABS} active={tab} onTabChange={(t) => setTab(t as Tab)} />
       {tab === "LIVE" && <LiveView />}
       {tab === "HEATMAP" && <HeatmapView />}

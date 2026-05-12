@@ -1,13 +1,31 @@
+import { useEffect, useState } from "react";
 import styles from "../styles/mission.module.css";
 import type { ConnectionStatus } from "../hooks/useCatScanSocket";
 
 interface HUDProps {
   onlineNodeCount: number;
   totalNodes: number;
-  sessionTime: string;
+  /** Optional override for tests / SSR; otherwise derived from a 1-Hz interval
+   *  owned by the HUD itself so the clock tick stays scoped here instead of
+   *  cascading re-renders through every other component in the App tree. */
+  sessionTime?: string;
   uptimeSec: number;
   wsStatus?: ConnectionStatus;
   demoMode?: boolean;
+}
+
+function nowAsHMS(): string {
+  return new Date().toLocaleTimeString("en-US", { hour12: false });
+}
+
+function useClock(initial?: string): string {
+  const [clock, setClock] = useState(() => initial ?? nowAsHMS());
+  useEffect(() => {
+    if (initial !== undefined) return; // tests pin sessionTime — don't override
+    const id = window.setInterval(() => setClock(nowAsHMS()), 1000);
+    return () => window.clearInterval(id);
+  }, [initial]);
+  return clock;
 }
 
 // "CatScan" — all glyphs in the same ANSI Shadow style, but the "at" and
@@ -84,6 +102,7 @@ function StatusPill({ status }: { status: ConnectionStatus }) {
 }
 
 export function HUD({ onlineNodeCount, totalNodes, sessionTime, wsStatus = "open", demoMode = false }: HUDProps) {
+  const clock = useClock(sessionTime);
   return (
     <header className={styles.headerBlock} aria-label="CatScan dashboard header">
       <div className={styles.logoWrapper} aria-label="CatScan">
@@ -106,7 +125,7 @@ export function HUD({ onlineNodeCount, totalNodes, sessionTime, wsStatus = "open
           <span className={styles.headerStatLabel}>NODES</span>
         </div>
         <div className={styles.headerStat}>
-          <span className={styles.headerStatValue}>{sessionTime}</span>
+          <span className={styles.headerStatValue}>{clock}</span>
           <span className={styles.headerStatLabel}>LOCAL</span>
         </div>
         <div className={styles.headerStatusBlock}>

@@ -13,6 +13,13 @@ interface FloorPlanProps {
    * room walls and labels remain crisp on top.
    */
   heatLayer?: ReactNode;
+  /**
+   * Strip the scan-line sweep + room codes for compact embedded use (e.g. the
+   * mini heat signature inside the cat detail panel).
+   */
+  compact?: boolean;
+  /** Click on a cat marker → open detail. */
+  onCatSelect?: (catId: number) => void;
 }
 
 function roomBBox(polygon: [number, number][]) {
@@ -91,11 +98,11 @@ function wallPathWithDoorGaps(polygon: [number, number][], doors: DoorConfig[]):
 }
 
 /** Spacing (in SVG units) between cat-marker centers when multiple cats share
- *  a room. Each marker is ~22px diameter with a ~26px outer radar ring, so 36
- *  keeps the radar rings from visually colliding. */
-const CAT_GROUP_GAP = 36;
+ *  a room. Each marker is ~44px diameter with a ~50px outer radar ring, so 64
+ *  keeps the cores well separated while letting the rings overlap subtly. */
+const CAT_GROUP_GAP = 64;
 
-export function FloorPlan({ cats, heatLayer }: FloorPlanProps) {
+export function FloorPlan({ cats, heatLayer, compact = false, onCatSelect }: FloorPlanProps) {
   const { viewBox, rooms, hallway, doors } = floorPlanConfig;
 
   function roomForCat(cat: CatState) {
@@ -104,12 +111,24 @@ export function FloorPlan({ cats, heatLayer }: FloorPlanProps) {
     return null;
   }
 
+  interface CoPresenceGroup {
+    key: string;
+    /** Cat marker positions in this room, ordered by cat id (same as render). */
+    positions: Array<[number, number]>;
+    /** Visible (non-silent) cats in this room. */
+    cats: CatState[];
+  }
+
   /**
    * Bucket cats by which room they're currently displayed in, then position
-   * each group along its room's longer axis so markers never overlap. A solo
-   * cat lands at the room centroid; pairs/triples spread symmetrically.
+   * each group along its room's longer axis so markers never overlap. Also
+   * surfaces "co-presence" groups (visible cats sharing a room) so the
+   * renderer can draw a connector + badge between them.
    */
-  function computePositions(): Map<number, [number, number]> {
+  function computePositions(): {
+    positions: Map<number, [number, number]>;
+    coPresence: CoPresenceGroup[];
+  } {
     const groups = new Map<string, CatState[]>();
     for (const cat of cats) {
       const room = roomForCat(cat);
@@ -120,6 +139,7 @@ export function FloorPlan({ cats, heatLayer }: FloorPlanProps) {
     }
 
     const positions = new Map<number, [number, number]>();
+    const coPresence: CoPresenceGroup[] = [];
     for (const [key, group] of groups) {
       const room = key === "__noroom__" ? null : rooms.find((r) => r.name === key) ?? null;
       if (!room) {
@@ -151,17 +171,29 @@ export function FloorPlan({ cats, heatLayer }: FloorPlanProps) {
       // Deterministic order — sort by cat id so the same cats land in the
       // same relative spots across renders.
       const ordered = [...group].sort((a, b) => a.id - b.id);
+      const orderedPositions: Array<[number, number]> = [];
       ordered.forEach((cat, i) => {
         const offset = start + i * step;
         const x = horizontal ? cx + offset : cx;
         const y = horizontal ? cy : cy + offset;
         positions.set(cat.id, [x, y]);
+        orderedPositions.push([x, y]);
       });
+
+      // Only treat *visible* cats as co-present; if one is silent the room
+      // really has just one tag broadcasting.
+      const visibleOrdered = ordered.filter((c) => !c.silent);
+      if (visibleOrdered.length >= 2) {
+        const visiblePositions = ordered
+          .map((c, idx) => (c.silent ? null : orderedPositions[idx]!))
+          .filter((p): p is [number, number] => p !== null);
+        coPresence.push({ key, positions: visiblePositions, cats: visibleOrdered });
+      }
     }
-    return positions;
+    return { positions, coPresence };
   }
 
-  const catPositions = computePositions();
+  const { positions: catPositions, coPresence } = computePositions();
 
   const [vbXStr, vbYStr, vbWStr, vbHStr] = viewBox.split(" ");
   const vbX = Number(vbXStr);
@@ -219,16 +251,18 @@ export function FloorPlan({ cats, heatLayer }: FloorPlanProps) {
       <rect width="100%" height="100%" fill="url(#cs-grid)" />
       <rect width="100%" height="100%" fill="url(#cs-grid-major)" />
 
-      {/* Subtle scan-line sweep */}
-      <rect x={vbX} y={vbY - vbH * 0.08} width={vbW} height={vbH * 0.08} fill="url(#cs-scanline)">
-        <animate
-          attributeName="y"
-          from={vbY - vbH * 0.08}
-          to={vbY + vbH}
-          dur="14s"
-          repeatCount="indefinite"
-        />
-      </rect>
+      {/* Subtle scan-line sweep — omitted in compact mode (too busy at small scale). */}
+      {!compact && (
+        <rect x={vbX} y={vbY - vbH * 0.08} width={vbW} height={vbH * 0.08} fill="url(#cs-scanline)">
+          <animate
+            attributeName="y"
+            from={vbY - vbH * 0.08}
+            to={vbY + vbH}
+            dur="14s"
+            repeatCount="indefinite"
+          />
+        </rect>
+      )}
 
       {/* Hallway fill — drawn first so room fills sit on top of any overlap */}
       <polygon
@@ -277,7 +311,8 @@ export function FloorPlan({ cats, heatLayer }: FloorPlanProps) {
         · HALL ·
       </text>
 
-      {/* Pass 3: room labels (top of geometry, below cat markers). */}
+      {/* Pass 3: room labels (top of geometry, below cat markers).
+          Compact mode skips the R## prefix and emoji to declutter mini views. */}
       {rooms.map((room, i) => {
         const bb = roomBBox(room.polygon);
         const code = `R${String(i + 1).padStart(2, "0")}`;
@@ -287,11 +322,50 @@ export function FloorPlan({ cats, heatLayer }: FloorPlanProps) {
             className={styles.roomLabelGroup}
             transform={`translate(${bb.x + 12}, ${bb.y + 18})`}
           >
-            <text className={styles.roomCode}>{code}</text>
-            <text className={styles.roomName} y={14}>
-              <tspan className={styles.roomEmoji}>{room.emoji}</tspan>
-              <tspan dx={6}>{room.name.toUpperCase()}</tspan>
+            {!compact && <text className={styles.roomCode}>{code}</text>}
+            <text className={styles.roomName} y={compact ? 0 : 14}>
+              {!compact && <tspan className={styles.roomEmoji}>{room.emoji}</tspan>}
+              <tspan dx={compact ? 0 : 6}>{room.name.toUpperCase()}</tspan>
             </text>
+          </g>
+        );
+      })}
+
+      {/* Co-presence aura — a soft, blurred ellipse that envelops the
+          visible cats sharing a room, color-blended between their hues.
+          No glyph, no connector — just a "they're together" glow. */}
+      {coPresence.map((g) => {
+        const xs = g.positions.map((p) => p[0]);
+        const ys = g.positions.map((p) => p[1]);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        const midX = (minX + maxX) / 2;
+        const midY = (minY + maxY) / 2;
+        const padding = 28;
+        const rx = (maxX - minX) / 2 + padding;
+        const ry = (maxY - minY) / 2 + padding;
+        const gradId = `cs-cuddle-${g.key.replace(/[^a-zA-Z0-9]/g, "-")}`;
+        const colors = g.cats.map((c) => c.color);
+        const c1 = colors[0]!;
+        const c2 = colors[colors.length - 1]!;
+        return (
+          <g key={`copres-${g.key}`} className={styles.coPresence}>
+            <defs>
+              <linearGradient id={gradId} x1="0%" y1="50%" x2="100%" y2="50%">
+                <stop offset="0%" stopColor={c1} stopOpacity="0.6" />
+                <stop offset="100%" stopColor={c2} stopOpacity="0.6" />
+              </linearGradient>
+            </defs>
+            <ellipse
+              cx={midX}
+              cy={midY}
+              rx={rx}
+              ry={ry}
+              fill={`url(#${gradId})`}
+              className={styles.coPresenceHalo}
+            />
           </g>
         );
       })}
@@ -299,7 +373,15 @@ export function FloorPlan({ cats, heatLayer }: FloorPlanProps) {
       {/* Cat markers (top of stack) */}
       {cats.map((cat) => {
         const [x, y] = catPositions.get(cat.id) ?? [400, 300];
-        return <CatMarker key={cat.id} cat={cat} x={x} y={y} />;
+        return (
+          <CatMarker
+            key={cat.id}
+            cat={cat}
+            x={x}
+            y={y}
+            {...(onCatSelect ? { onSelect: onCatSelect } : {})}
+          />
+        );
       })}
 
     </svg>

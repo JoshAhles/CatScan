@@ -36,6 +36,11 @@ const SILENT_CYCLE_INTERVAL_MS = 95_000;
 const SILENT_CHANCE = 0.5;
 /** Range of seconds a cat stays silent before being re-detected. */
 const SILENT_DWELL_MS = { min: 18_000, max: 38_000 };
+/** Occasionally do a much longer silent dwell (~6 min) so the SilentAlert
+ *  threshold (5 min) actually triggers in demo — same shape as a real
+ *  dead-battery / out-of-range event would produce. */
+const LONG_SILENT_CHANCE = 0.18;
+const LONG_SILENT_DWELL_MS = 6 * 60 * 1000;
 
 /**
  * Validate the event against the shared schema, then dispatch it through the
@@ -49,7 +54,14 @@ function dispatch(ev: ServerEvent) {
 
 export function installDemo(): () => void {
   // Fresh slate so re-mounts (e.g. React StrictMode double-invoke) seed cleanly.
-  useWsStore.setState({ cats: [], nodes: [], calibration: {}, events: [] });
+  useWsStore.setState({
+    cats: [],
+    nodes: [],
+    calibration: {},
+    events: [],
+    transitions: [],
+    selectedCatId: null,
+  });
 
   // 1. Snapshot first — establishes cats / nodes / calibration so subsequent
   //    activity-log messages can resolve cat names and node room labels.
@@ -90,7 +102,9 @@ export function installDemo(): () => void {
     const cat = candidates[Math.floor(Math.random() * candidates.length)]!;
     const lastRoom = cat.room!;
     dispatch(makeSilentEvent(cat.id, lastRoom));
-    const dwell = SILENT_DWELL_MS.min + Math.random() * (SILENT_DWELL_MS.max - SILENT_DWELL_MS.min);
+    const dwell = Math.random() < LONG_SILENT_CHANCE
+      ? LONG_SILENT_DWELL_MS
+      : SILENT_DWELL_MS.min + Math.random() * (SILENT_DWELL_MS.max - SILENT_DWELL_MS.min);
     const id = window.setTimeout(() => {
       unsilentTimeouts.delete(id);
       // Re-detect in the same room or an adjacent one — mirrors how the real

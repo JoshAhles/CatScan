@@ -72,7 +72,7 @@ export function buildSnapshotEvent(now = Math.floor(Date.now() / 1000)): ServerE
       silent: false,
       lastRoom: null,
       lastSeen: null,
-      photoPath: null,
+      photoPath: "/cats/ollie.png",
     },
     {
       id: DEMO_CATS.hope.id,
@@ -83,7 +83,7 @@ export function buildSnapshotEvent(now = Math.floor(Date.now() / 1000)): ServerE
       silent: false,
       lastRoom: null,
       lastSeen: null,
-      photoPath: null,
+      photoPath: "/cats/hope.png",
     },
   ];
 

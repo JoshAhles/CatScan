@@ -1,37 +1,79 @@
 import type { CatState } from "../types/contracts";
+import { SLEEP_THRESHOLD_SEC, formatDuration } from "../lib/duration";
 import styles from "../styles/mission.module.css";
 
 interface CatCardProps {
   cat: CatState;
   nowSec: number;
+  onSelect?: (catId: number) => void;
 }
 
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
-}
+export function CatCard({ cat, nowSec, onSelect }: CatCardProps) {
+  const interactive = !!onSelect;
+  const dwellSec = !cat.silent && cat.since != null ? nowSec - cat.since : 0;
+  const isSleeping = !cat.silent && dwellSec >= SLEEP_THRESHOLD_SEC;
 
-export function CatCard({ cat, nowSec }: CatCardProps) {
   return (
-    <div className={styles.catCard}>
-      <div className={styles.catCardHeader}>
-        <div className={styles.catDot} style={{ background: cat.color }} />
-        <span className={styles.catName}>{cat.name}</span>
-      </div>
+    <div
+      className={`${styles.catCard} ${interactive ? styles.catCardClickable : ""}`}
+      onClick={onSelect ? () => onSelect(cat.id) : undefined}
+      onKeyDown={
+        onSelect
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(cat.id);
+              }
+            }
+          : undefined
+      }
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : -1}
+      aria-label={interactive ? `Open ${cat.name} detail` : undefined}
+    >
+      {cat.photoPath ? (
+        <img
+          className={styles.catCardAvatar}
+          src={cat.photoPath}
+          alt={cat.name}
+          style={{ borderColor: cat.color, boxShadow: `0 0 14px ${cat.color}55` }}
+        />
+      ) : (
+        <div
+          className={styles.catCardAvatarFallback}
+          style={{ background: cat.color, boxShadow: `0 0 14px ${cat.color}55` }}
+          aria-label={cat.name}
+        >
+          {cat.name.slice(0, 1).toUpperCase()}
+        </div>
+      )}
       {cat.silent ? (
-        <div className={styles.catStatus}>
-          <span className={styles.catSilent}>
-            last seen <span className={styles.catRoom}>{cat.lastRoom ?? "unknown"}</span>
+        <div className={styles.catCardLocation}>
+          <span className={styles.catSilent}>SILENT</span>
+          <span className={styles.catCardMeta}>
+            last seen <span className={styles.catRoom}>{cat.lastRoom ?? "?"}</span>
+            {cat.lastSeen != null && (
+              <> · {formatDuration(nowSec - cat.lastSeen)} ago</>
+            )}
+          </span>
+        </div>
+      ) : isSleeping ? (
+        <div className={styles.catCardLocation}>
+          <span className={styles.catSleeping}>
+            <span className={styles.catSleepingGlyph} aria-hidden="true">z</span>
+            SLEEPING
+          </span>
+          <span className={styles.catCardMeta}>
+            in <span className={styles.catRoom}>{cat.room}</span>
             {" · "}
-            {cat.lastSeen != null ? formatDuration(nowSec - cat.lastSeen) : "?"} ago
+            {formatDuration(dwellSec)}
           </span>
         </div>
       ) : (
-        <div className={styles.catStatus}>
+        <div className={styles.catCardLocation}>
           <span className={styles.catRoom}>{cat.room}</span>
           {cat.since != null && (
-            <span> · {formatDuration(nowSec - cat.since)}</span>
+            <span className={styles.catCardMeta}>{formatDuration(dwellSec)}</span>
           )}
         </div>
       )}

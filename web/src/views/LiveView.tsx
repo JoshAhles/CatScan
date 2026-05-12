@@ -3,6 +3,7 @@ import { useWsStore } from "../stores/wsStore";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { FloorPlan } from "../components/FloorPlan";
 import { CatCard } from "../components/CatCard";
+import { CatDetailPanel } from "../components/CatDetailPanel";
 import { Telemetry } from "../components/Telemetry";
 import { ActivityLog } from "../components/ActivityLog";
 import styles from "../styles/mission.module.css";
@@ -10,9 +11,10 @@ import styles from "../styles/mission.module.css";
 interface TrackingPanelProps {
   drawerOpen?: boolean;
   isMobile?: boolean;
+  onCatSelect?: (catId: number) => void;
 }
 
-function TrackingPanel({ drawerOpen, isMobile }: TrackingPanelProps) {
+function TrackingPanel({ drawerOpen, isMobile, onCatSelect }: TrackingPanelProps) {
   const cats = useWsStore((s) => s.cats);
   // Tick once a second so "X in room for Y" durations stay live.
   const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
@@ -36,7 +38,14 @@ function TrackingPanel({ drawerOpen, isMobile }: TrackingPanelProps) {
         {cats.length === 0 ? (
           <div className={styles.telemetryEmpty}>NO CATS PAIRED</div>
         ) : (
-          cats.map((cat) => <CatCard key={cat.id} cat={cat} nowSec={nowSec} />)
+          cats.map((cat) => (
+            <CatCard
+              key={cat.id}
+              cat={cat}
+              nowSec={nowSec}
+              {...(onCatSelect ? { onSelect: onCatSelect } : {})}
+            />
+          ))
         )}
       </div>
     </aside>
@@ -45,16 +54,24 @@ function TrackingPanel({ drawerOpen, isMobile }: TrackingPanelProps) {
 
 export function LiveView() {
   const cats = useWsStore((s) => s.cats);
+  const selectedCatId = useWsStore((s) => s.selectedCatId);
+  const setSelectedCatId = useWsStore((s) => s.setSelectedCatId);
   const isMobile = useMediaQuery("(max-width: 768px)");
   const isMidWidth = useMediaQuery("(max-width: 1180px)");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const selectedCat = cats.find((c) => c.id === selectedCatId) ?? null;
+
   return (
     <>
       <div className={styles.layout} data-testid="live-view">
-        <TrackingPanel drawerOpen={drawerOpen} isMobile={isMobile} />
+        <TrackingPanel
+          drawerOpen={drawerOpen}
+          isMobile={isMobile}
+          onCatSelect={setSelectedCatId}
+        />
         <main className={styles.floorPlanArea}>
-          <FloorPlan cats={cats} />
+          <FloorPlan cats={cats} onCatSelect={setSelectedCatId} />
         </main>
         {!isMidWidth && <Telemetry />}
         <ActivityLog />
@@ -68,6 +85,9 @@ export function LiveView() {
         >
           {drawerOpen ? "✕" : "☰"}
         </button>
+      )}
+      {selectedCat && (
+        <CatDetailPanel cat={selectedCat} onClose={() => setSelectedCatId(null)} />
       )}
     </>
   );

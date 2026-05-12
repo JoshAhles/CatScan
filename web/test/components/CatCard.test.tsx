@@ -16,7 +16,8 @@ it("renders visible cat with room and since timestamp", () => {
       nowSec={now}
     />
   );
-  expect(screen.getByText("Ollie")).toBeInTheDocument();
+  // No photoPath → monogram fallback carries the cat's name via aria-label
+  expect(screen.getByLabelText("Ollie")).toBeInTheDocument();
   expect(screen.getByText(/Bedroom/)).toBeInTheDocument();
 });
 
@@ -28,7 +29,7 @@ it("renders silent cat with last seen info", () => {
       nowSec={now}
     />
   );
-  expect(screen.getByText("Ollie")).toBeInTheDocument();
+  expect(screen.getByLabelText("Ollie")).toBeInTheDocument();
   expect(screen.getByText(/last seen/i)).toBeInTheDocument();
   expect(screen.getByText(/Kitchen/)).toBeInTheDocument();
   expect(screen.getByText(/ago/)).toBeInTheDocument();
