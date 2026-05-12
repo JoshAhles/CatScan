@@ -94,17 +94,19 @@ export const floorPlanConfig = {
     },
   ] satisfies RoomConfig[],
   /**
-   * Corridor — the central hub. Touches Living Room (north at y=290),
-   * Master Bedroom (west at x=340), Office (south at y=450, x=370–510),
-   * and Cat Room (south at y=450, x=510–590). Visual context only; NOT a
-   * tracked room. The 6th ESP32 (spare) sits here.
+   * Corridor — narrow connector strip between Living Room (north) and the
+   * Office/Cat Room boundary (south). Doors to Master Bedroom (west), Office
+   * (south-southwest), and Cat Room (south-southeast) are implicit in the
+   * gaps — drawing them as full shared walls would overstate the corridor's
+   * actual size. Cats transit through but don't dwell, so visual prominence
+   * is intentionally minimal. Not a tracked room.
    */
   hallway: {
     polygon: [
-      [340, 290],
-      [590, 290],
-      [590, 450],
-      [340, 450],
+      [390, 290],
+      [490, 290],
+      [490, 450],
+      [390, 450],
     ] as [number, number][],
   },
   nodes: [
@@ -115,7 +117,7 @@ export const floorPlanConfig = {
     { id: "node-00000003", pos: [190, 440] as [number, number] }, // Master Bedroom
     { id: "node-00000004", pos: [440, 525] as [number, number] }, // Office
     { id: "node-00000005", pos: [600, 525] as [number, number] }, // Cat Room
-    { id: "node-00000006", pos: [465, 370] as [number, number] }, // Corridor (spare)
+    { id: "node-00000006", pos: [440, 370] as [number, number] }, // Corridor (spare)
   ] satisfies NodeConfig[],
 };
 
