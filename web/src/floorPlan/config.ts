@@ -50,7 +50,7 @@ export const floorPlanConfig = {
         [320, 330],
         [70, 330],
       ] as [number, number][],
-      color: "#3a2e10",
+      color: "#5a3d14",
     },
     {
       name: "Living Room",
@@ -63,7 +63,7 @@ export const floorPlanConfig = {
         [660, 330],
         [320, 330],
       ] as [number, number][],
-      color: "#1a2840",
+      color: "#243f70",
     },
     {
       name: "Master Bedroom",
@@ -76,7 +76,7 @@ export const floorPlanConfig = {
         [340, 560],
         [40, 560],
       ] as [number, number][],
-      color: "#103a32",
+      color: "#1f5a50",
     },
     {
       name: "Office",
@@ -90,7 +90,7 @@ export const floorPlanConfig = {
         [515, 600],
         [340, 600],
       ] as [number, number][],
-      color: "#1a2a20",
+      color: "#3d5a1c",
     },
     {
       name: "Cat Room",
@@ -103,7 +103,7 @@ export const floorPlanConfig = {
         [690, 600],
         [515, 600],
       ] as [number, number][],
-      color: "#2a201a",
+      color: "#6a2850",
     },
   ] satisfies RoomConfig[],
   /**
