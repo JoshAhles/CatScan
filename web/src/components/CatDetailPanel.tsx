@@ -258,7 +258,7 @@ export function CatDetailPanel({ cat, onClose }: CatDetailPanelProps) {
                 >
                   {slept && (
                     <span className={styles.daySegmentSleep} aria-hidden="true">
-                      z
+                      💤
                     </span>
                   )}
                 </span>
@@ -299,7 +299,7 @@ export function CatDetailPanel({ cat, onClose }: CatDetailPanelProps) {
                 <li key={i} className={`${styles.recentRow} ${t.slept ? styles.recentRowSleep : ""}`}>
                   <span className={styles.recentTime}>{formatHMS(t.at)}</span>
                   <span className={`${styles.recentArrow} ${t.slept ? styles.recentArrowSleep : ""}`}>
-                    {t.slept ? "z" : "→"}
+                    {t.slept ? "💤" : "→"}
                   </span>
                   <span className={styles.recentRoom}>
                     {t.to.toUpperCase()}

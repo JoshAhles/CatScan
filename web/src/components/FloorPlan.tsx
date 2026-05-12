@@ -247,7 +247,7 @@ export function FloorPlan({ cats, heatLayer, compact = false, onCatSelect }: Flo
       </defs>
 
       {/* Canvas background */}
-      <rect width="100%" height="100%" fill="#06080d" />
+      <rect width="100%" height="100%" fill="#0c1422" />
       <rect width="100%" height="100%" fill="url(#cs-grid)" />
       <rect width="100%" height="100%" fill="url(#cs-grid-major)" />
 
@@ -277,7 +277,7 @@ export function FloorPlan({ cats, heatLayer, compact = false, onCatSelect }: Flo
           key={`fill-${room.name}`}
           points={polygonPath(room.polygon)}
           className={styles.roomFill}
-          style={{ fill: room.color, fillOpacity: 0.32 }}
+          style={{ fill: room.color, fillOpacity: 0.42 }}
         />
       ))}
 

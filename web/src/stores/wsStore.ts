@@ -86,7 +86,7 @@ function buildApplyEvent(
 
         logActivity({
           ts: ev.at,
-          icon: wasSleeping ? "z" : "→",
+          icon: wasSleeping ? "💤" : "→",
           message: wasSleeping
             ? `${catName(ev.catId)} slept in ${ev.from.toUpperCase()} · ${formatDuration(dwell)} → ${ev.to.toUpperCase()}`
             : `${catName(ev.catId)} ${ev.from.toUpperCase()} → ${ev.to.toUpperCase()}`,

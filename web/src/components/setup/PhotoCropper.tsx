@@ -51,14 +51,14 @@ export function PhotoCropper({ file, onAccept }: PhotoCropperProps) {
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}>
       <canvas
         ref={canvasRef}
-        style={{ border: "1px solid #1a2d3a", borderRadius: "50%", width: 128, height: 128 }}
+        style={{ border: "1px solid #2a3d52", borderRadius: "50%", width: 128, height: 128 }}
       />
       <button
         onClick={handleAccept}
         style={{
           padding: "0.5rem 1rem",
           background: "#1ee0c9",
-          color: "#06080d",
+          color: "#0c1422",
           border: "none",
           borderRadius: 4,
           cursor: "pointer",

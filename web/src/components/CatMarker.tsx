@@ -80,7 +80,7 @@ export function CatMarker({ cat, x, y, onSelect }: CatMarkerProps) {
             fontSize="20"
             fontWeight="700"
             fontFamily="ui-monospace, Menlo, monospace"
-            fill="#06080d"
+            fill="#0c1422"
             opacity={innerOpacity}
           >
             {monogram}

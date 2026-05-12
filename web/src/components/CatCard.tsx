@@ -60,7 +60,7 @@ export function CatCard({ cat, nowSec, onSelect }: CatCardProps) {
       ) : isSleeping ? (
         <div className={styles.catCardLocation}>
           <span className={styles.catSleeping}>
-            <span className={styles.catSleepingGlyph} aria-hidden="true">z</span>
+            <span className={styles.catSleepingGlyph} aria-hidden="true">💤</span>
             SLEEPING
           </span>
           <span className={styles.catCardMeta}>

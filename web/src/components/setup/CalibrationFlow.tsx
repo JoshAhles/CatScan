@@ -54,10 +54,10 @@ export function CalibrationFlow() {
               key={room.name}
               style={{
                 display: "flex", alignItems: "center", gap: "0.75rem",
-                padding: "0.5rem 0.75rem", background: "#0d1520", border: "1px solid #1a2d3a", borderRadius: 4,
+                padding: "0.5rem 0.75rem", background: "#152334", border: "1px solid #2a3d52", borderRadius: 4,
               }}
             >
-              <span style={{ flex: 1, color: state.status === "saved" ? "#1ee0c9" : "#c8d8e8", fontSize: "0.8rem" }}>
+              <span style={{ flex: 1, color: state.status === "saved" ? "#1ee0c9" : "#d2dfeb", fontSize: "0.8rem" }}>
                 {room.name}
               </span>
               {state.status === "saved" && (
@@ -72,7 +72,7 @@ export function CalibrationFlow() {
                 <button
                   onClick={() => startCalibration(room.name)}
                   style={{
-                    padding: "0.25rem 0.75rem", background: "#1ee0c9", color: "#06080d",
+                    padding: "0.25rem 0.75rem", background: "#1ee0c9", color: "#0c1422",
                     border: "none", borderRadius: 3, cursor: "pointer", minHeight: 44,
                     fontFamily: "ui-monospace, monospace", fontSize: "0.7rem", letterSpacing: "0.08em",
                   }}

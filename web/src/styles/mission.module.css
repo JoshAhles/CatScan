@@ -1,14 +1,17 @@
 /* Mission Control aesthetic — dark background, cyan accents, monospace */
 
 .root {
-  --bg: #06080d;
+  /* Lighter-dark palette: keeps the mission-control cyan-on-dark feel but
+     lifts each tone ~one stop so the canvas doesn't feel as oppressive.
+     Accents and danger colors stay put so glow/contrast remain intact. */
+  --bg: #0c1422;
   --accent: #1ee0c9;
   --accent-dim: #0fa38f;
-  --text: #c8d8e8;
-  --text-dim: #6a8090;
-  --surface: #0d1520;
-  --surface-2: #121d2a;
-  --border: #1a2d3a;
+  --text: #d2dfeb;
+  --text-dim: #7e93a8;
+  --surface: #152334;
+  --surface-2: #1d2c40;
+  --border: #2a3d52;
   --cat-ollie: #ffcc4d;
   --cat-hope: #fb7185;
   --danger: #ff4d6a;
@@ -431,14 +434,11 @@
 }
 
 .daySegmentSleep {
-  color: #b78cf0;
-  font-size: 0.7rem;
-  font-style: italic;
-  font-weight: 700;
-  text-transform: lowercase;
+  font-size: 0.78rem;
+  line-height: 1;
   letter-spacing: 0;
-  text-shadow: 0 0 6px rgba(183, 140, 240, 0.55);
   pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6));
 }
 
 .dayAxis {
@@ -520,10 +520,11 @@
 }
 
 .recentArrowSleep {
-  color: #b78cf0;
-  font-style: italic;
-  text-transform: lowercase;
-  text-shadow: 0 0 5px rgba(183, 140, 240, 0.55);
+  /* Emoji at its native size — drop the letter-style transforms */
+  font-size: 0.85rem;
+  letter-spacing: 0;
+  text-transform: none;
+  font-style: normal;
 }
 
 .recentRowSleep .recentTime {
@@ -804,19 +805,10 @@
 }
 
 .catSleepingGlyph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: rgba(183, 140, 240, 0.18);
-  color: #b78cf0;
-  font-size: 0.65rem;
-  font-weight: 700;
-  font-style: italic;
+  font-size: 0.95rem;
+  line-height: 1;
   letter-spacing: 0;
-  text-transform: lowercase;
+  /* Emoji renders at its own glyph metrics — no need for tinting/transform */
 }
 
 /* Floor plan — fluid, fills available grid cell */
