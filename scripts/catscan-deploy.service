@@ -7,6 +7,5 @@ Wants=network-online.target
 Type=oneshot
 User=catscan
 WorkingDirectory=/opt/catscan
+RuntimeDirectory=catscan-deploy
 ExecStart=/opt/catscan/scripts/auto-deploy.sh
-# Allow restarting the main service without a password (paired with the
-# sudoers drop-in installed in /etc/sudoers.d/catscan-deploy).

@@ -5,7 +5,7 @@ set -euo pipefail
 
 REPO=/opt/catscan
 BRANCH=main
-LOCK=/run/catscan-deploy.lock
+LOCK="${RUNTIME_DIRECTORY:-/tmp}/catscan-deploy.lock"
 
 # Single-flight: bail if a previous tick is still running.
 exec 9>"$LOCK"
