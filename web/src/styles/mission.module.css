@@ -924,6 +924,33 @@
   justify-content: center;
   min-height: 0;
   overflow: hidden;
+  position: relative;
+}
+
+.heatEmpty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  pointer-events: none;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--text-dim, #6b7280);
+}
+
+.heatEmptyTitle {
+  font-size: 0.85rem;
+  letter-spacing: 0.18em;
+  color: var(--text-mid, #9ca3af);
+}
+
+.heatEmptySub {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  max-width: 32ch;
+  text-align: center;
 }
 
 .heatToolbar {
