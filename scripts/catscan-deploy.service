@@ -1,0 +1,12 @@
+[Unit]
+Description=CatScan auto-deploy poll (git pull + rebuild + restart on new commit)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=catscan
+WorkingDirectory=/opt/catscan
+ExecStart=/opt/catscan/scripts/auto-deploy.sh
+# Allow restarting the main service without a password (paired with the
+# sudoers drop-in installed in /etc/sudoers.d/catscan-deploy).
