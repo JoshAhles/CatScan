@@ -11,6 +11,10 @@ export class EventStore {
   setNodeRoom(id: string, roomName: string) {
     this.db.prepare(`UPDATE nodes SET room_name = ?, status = 'online' WHERE id = ?`).run(roomName, id);
   }
+  recordNodeHealth(id: string, status: "online" | "offline", tsSec: number) {
+    this.db.prepare(`INSERT OR IGNORE INTO nodes(id, status) VALUES(?, ?)`).run(id, status);
+    this.db.prepare(`UPDATE nodes SET status = ?, last_heartbeat = ? WHERE id = ?`).run(status, tsSec, id);
+  }
   listNodes() {
     return this.db.prepare(`SELECT id, room_name, last_heartbeat, status FROM nodes`).all() as Array<any>;
   }

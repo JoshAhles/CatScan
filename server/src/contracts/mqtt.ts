@@ -15,6 +15,14 @@ export type RawReading = z.infer<typeof rawReadingSchema>;
 export const TOPIC_RAW_PREFIX = "catscan/raw/";
 export const TOPIC_RAW_PATTERN = "catscan/raw/+";
 export const TOPIC_HEALTH_PREFIX = "catscan/health/";
+export const TOPIC_HEALTH_PATTERN = "catscan/health/+";
+
+export type HealthStatus = "online" | "offline";
+
+export function parseHealthPayload(payload: string): HealthStatus | null {
+  const s = payload.trim();
+  return s === "online" || s === "offline" ? s : null;
+}
 
 export function isAirTagMac(s: string): boolean {
   return MAC_REGEX.test(s);

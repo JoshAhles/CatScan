@@ -4,7 +4,7 @@ import { runMigrations } from "../../src/store/migrationRunner";
 import { EventStore } from "../../src/store/EventStore";
 import { WsServer, Hub } from "../../src/ws/WsServer";
 import { Orchestrator } from "../../src/orchestrator/Orchestrator";
-import { TOPIC_RAW_PREFIX } from "../../src/contracts/mqtt";
+import { TOPIC_RAW_PREFIX, TOPIC_HEALTH_PREFIX } from "../../src/contracts/mqtt";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ServerEvent } from "../../src/contracts/ws";
@@ -63,6 +63,35 @@ describe("Orchestrator composition", () => {
 
     orchestrator.handleRawMessage(`${TOPIC_RAW_PREFIX}node-A1B2C3D4`, Buffer.from("not-json"));
 
+    expect(store.listNodes()).toHaveLength(0);
+    orchestrator.stop();
+  });
+
+  it("records node health from catscan/health/+ and broadcasts nodeHealth", async () => {
+    const { store, orchestrator, emittedEvents } = buildOrchestrator();
+    await orchestrator.start();
+
+    orchestrator.handleHealthMessage(`${TOPIC_HEALTH_PREFIX}node-DEADBEEF`, Buffer.from("online"));
+    let nodes = store.listNodes();
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]?.id).toBe("node-DEADBEEF");
+    expect(nodes[0]?.status).toBe("online");
+    expect(nodes[0]?.last_heartbeat).toBe(1715446789);
+
+    orchestrator.handleHealthMessage(`${TOPIC_HEALTH_PREFIX}node-DEADBEEF`, Buffer.from("offline"));
+    nodes = store.listNodes();
+    expect(nodes[0]?.status).toBe("offline");
+
+    const healthEvents = emittedEvents.filter(e => e.type === "nodeHealth");
+    expect(healthEvents).toHaveLength(2);
+    orchestrator.stop();
+  });
+
+  it("ignores malformed health payloads", async () => {
+    const { store, orchestrator } = buildOrchestrator();
+    await orchestrator.start();
+    orchestrator.handleHealthMessage(`${TOPIC_HEALTH_PREFIX}node-DEADBEEF`, Buffer.from("yes please"));
+    orchestrator.handleHealthMessage(`${TOPIC_HEALTH_PREFIX}not-a-node-id`, Buffer.from("online"));
     expect(store.listNodes()).toHaveLength(0);
     orchestrator.stop();
   });

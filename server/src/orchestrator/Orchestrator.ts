@@ -7,7 +7,13 @@ import { RoomDecider } from "../decider/RoomDecider";
 import { IdentityResolver } from "../identity/IdentityResolver";
 import { CalibrationController } from "../calibration/CalibrationController";
 import { PairingWindowController } from "../pairing/PairingWindowController";
-import { TOPIC_RAW_PATTERN, TOPIC_RAW_PREFIX } from "../contracts/mqtt";
+import {
+  TOPIC_RAW_PATTERN,
+  TOPIC_RAW_PREFIX,
+  TOPIC_HEALTH_PATTERN,
+  TOPIC_HEALTH_PREFIX,
+  parseHealthPayload,
+} from "../contracts/mqtt";
 import type { ServerEvent, Snapshot } from "../contracts/ws";
 
 export interface OrchestratorConfig {
@@ -123,9 +129,12 @@ export class Orchestrator {
     // Subscribe to MQTT if client provided
     if (this.mqttClient) {
       this.mqttClient.subscribe(TOPIC_RAW_PATTERN);
+      this.mqttClient.subscribe(TOPIC_HEALTH_PATTERN);
       this.mqttClient.on("message", (topic: string, payload: Buffer) => {
         if (topic.startsWith(TOPIC_RAW_PREFIX)) {
           this.ingestor.handleMessage(topic, payload);
+        } else if (topic.startsWith(TOPIC_HEALTH_PREFIX)) {
+          this.handleHealth(topic.slice(TOPIC_HEALTH_PREFIX.length), payload);
         }
       });
     }
@@ -206,12 +215,32 @@ export class Orchestrator {
     this.ingestor.handleMessage(topic, payload);
   }
 
+  /** Direct health-message injection for testing */
+  handleHealthMessage(topic: string, payload: Buffer) {
+    if (!topic.startsWith(TOPIC_HEALTH_PREFIX)) return;
+    this.handleHealth(topic.slice(TOPIC_HEALTH_PREFIX.length), payload);
+  }
+
   getCalibrationController(): CalibrationController {
     return this.calibrationController;
   }
 
   getPairingController(): PairingWindowController {
     return this.pairingController;
+  }
+
+  private handleHealth(nodeId: string, payload: Buffer) {
+    const status = parseHealthPayload(payload.toString("utf8"));
+    if (!status) return;
+    if (!/^node-[0-9A-F]{8}$/.test(nodeId)) return;
+    this.store.recordNodeHealth(nodeId, status, this.cfg.nowSec());
+    if (!this.nodeIds.includes(nodeId)) this.nodeIds.push(nodeId);
+    this.ws.broadcast({
+      type: "nodeHealth",
+      nodeId: nodeId as `node-${string}`,
+      status,
+      since: this.cfg.nowSec(),
+    } as ServerEvent);
   }
 
   private handleNodeDiscovered(nodeId: string) {
