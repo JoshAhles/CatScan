@@ -14,7 +14,7 @@
  *  7. If root: systemctl daemon-reload + enable --now catscan
  */
 
-import { createInterface } from "node:readline/promises";
+import { createInterface } from "node:readline";
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { execSync, spawnSync } from "node:child_process";
@@ -53,50 +53,91 @@ function writeFile(path, content, mode) {
   if (mode) chmodSync(path, mode);
 }
 
-async function prompt(rl, question, { secret = false } = {}) {
-  if (secret && process.stdin.isTTY) {
-    // hide input for passwords
-    process.stdout.write(question);
-    return new Promise((resolve) => {
-      let val = "";
-      const stdin = process.stdin;
-      const wasRaw = stdin.isRaw;
-      stdin.setRawMode(true);
-      stdin.resume();
-      stdin.setEncoding("utf8");
-      function onData(ch) {
-        if (ch === "\n" || ch === "\r" || ch === "") {
-          stdin.setRawMode(wasRaw);
-          stdin.pause();
-          stdin.removeListener("data", onData);
-          process.stdout.write("\n");
-          if (ch === "") process.exit(1);
-          resolve(val);
-        } else if (ch === "") {
-          val = val.slice(0, -1);
-        } else {
-          val += ch;
-        }
-      }
-      stdin.on("data", onData);
+// Eagerly buffer all piped stdin lines so sequential prompts can drain them.
+// The classic readline/promises API loses queued lines between awaits on some
+// Node versions, which broke this script when invoked via `printf ... | pnpm setup`.
+function makeLineReader() {
+  const queue = [];
+  const waiters = [];
+  let closed = false;
+  if (!process.stdin.isTTY) {
+    const rl = createInterface({ input: process.stdin });
+    rl.on("line", (line) => {
+      if (waiters.length) waiters.shift()(line);
+      else queue.push(line);
+    });
+    rl.on("close", () => {
+      closed = true;
+      while (waiters.length) waiters.shift()("");
     });
   }
-  return rl.question(question);
+  return {
+    readLine() {
+      if (queue.length) return Promise.resolve(queue.shift());
+      if (closed) return Promise.resolve("");
+      return new Promise((resolve) => waiters.push(resolve));
+    },
+  };
+}
+
+async function prompt(reader, question, { secret = false } = {}) {
+  process.stdout.write(question);
+  if (process.stdin.isTTY) {
+    if (secret) {
+      return new Promise((resolve) => {
+        let val = "";
+        const stdin = process.stdin;
+        const wasRaw = stdin.isRaw;
+        stdin.setRawMode(true);
+        stdin.resume();
+        stdin.setEncoding("utf8");
+        function onData(ch) {
+          if (ch === "\n" || ch === "\r" || ch === "") {
+            stdin.setRawMode(wasRaw);
+            stdin.pause();
+            stdin.removeListener("data", onData);
+            process.stdout.write("\n");
+            resolve(val);
+          } else if (ch === "") {
+            stdin.setRawMode(wasRaw);
+            stdin.pause();
+            process.stdout.write("\n");
+            process.exit(1);
+          } else if (ch === "" || ch === "\b") {
+            val = val.slice(0, -1);
+          } else {
+            val += ch;
+          }
+        }
+        stdin.on("data", onData);
+      });
+    }
+    // interactive non-secret: one-shot readline
+    return new Promise((resolve) => {
+      const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+      rl.once("line", (line) => {
+        rl.close();
+        resolve(line);
+      });
+    });
+  }
+  // piped stdin: drain from the shared buffered reader
+  const line = await reader.readLine();
+  if (secret) process.stdout.write("\n");
+  else process.stdout.write(line + "\n");
+  return line;
 }
 
 // ── collect user input ────────────────────────────────────────────────────────
 
 async function collectInputs() {
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+  const reader = makeLineReader();
 
   log("\n=== CatScan Setup ===\n");
 
   const mqttUser = "catscan";
 
-  const mqttPass = await prompt(rl, "Mosquitto password for 'catscan' user: ", {
+  const mqttPass = await prompt(reader, "Mosquitto password for 'catscan' user: ", {
     secret: true,
   });
   if (!mqttPass.trim()) {
@@ -104,15 +145,11 @@ async function collectInputs() {
     process.exit(1);
   }
 
-  const wifiSsid = await rl.question("WiFi SSID: ");
-  const wifiPass = await prompt(rl, "WiFi password: ", { secret: true });
+  const wifiSsid = await prompt(reader, "WiFi SSID: ");
+  const wifiPass = await prompt(reader, "WiFi password: ", { secret: true });
 
-  let tz = await rl.question(
-    "Timezone (e.g. America/Phoenix) [America/Phoenix]: "
-  );
+  let tz = await prompt(reader, "Timezone (e.g. America/Phoenix) [America/Phoenix]: ");
   if (!tz.trim()) tz = "America/Phoenix";
-
-  rl.close();
 
   return { mqttUser, mqttPass, wifiSsid, wifiPass, tz };
 }
@@ -318,6 +355,7 @@ async function main() {
     log("  2. Flash each ESP32: pio run -e esp32dev -t upload");
     log("  3. Check dashboard at http://<pi-ip>:8787");
   }
+  process.exit(0);
 }
 
 main().catch((err) => {

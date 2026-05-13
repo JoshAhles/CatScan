@@ -3,6 +3,7 @@ node_modules/
 *.log
 .env
 .env.local
+.catscan-secrets.local
 data/
 dist/
 build/
