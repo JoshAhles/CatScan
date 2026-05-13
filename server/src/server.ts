@@ -3,6 +3,7 @@ import staticPlugin from "@fastify/static";
 import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
 import Database from "better-sqlite3";
+import mqtt from "mqtt";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runMigrations } from "./store/migrationRunner";
@@ -40,7 +41,22 @@ registerAuth(app, token);
 registerHealth(app, () => Math.floor((Date.now() - startedAt) / 1000));
 
 const ws = new WsServer(token);
-const orchestrator = new Orchestrator({ store, ws });
+
+const mqttHost = process.env["MQTT_HOST"] ?? "localhost";
+const mqttPort = Number(process.env["MQTT_PORT"] ?? 1883);
+const mqttUser = process.env["MQTT_USERNAME"];
+const mqttPass = process.env["MQTT_PASSWORD"];
+const mqttClient = mqtt.connect(`mqtt://${mqttHost}:${mqttPort}`, {
+  ...(mqttUser ? { username: mqttUser } : {}),
+  ...(mqttPass ? { password: mqttPass } : {}),
+  reconnectPeriod: 5_000,
+  clientId: `catscan-server-${Math.random().toString(16).slice(2, 10)}`,
+});
+mqttClient.on("connect", () => app.log.info(`MQTT connected to ${mqttHost}:${mqttPort}`));
+mqttClient.on("error", (err) => app.log.error({ err }, "MQTT error"));
+mqttClient.on("reconnect", () => app.log.warn("MQTT reconnecting"));
+
+const orchestrator = new Orchestrator({ store, ws, mqttClient });
 await orchestrator.start();
 
 ws.attach(app);
