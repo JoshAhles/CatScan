@@ -77,13 +77,13 @@ export function CatPairing({ onComplete }: CatPairingProps) {
           padding: "1rem", marginBottom: "1rem", color: "#ffcc4d", fontSize: "0.8rem",
           lineHeight: 1.6,
         }}>
-          Place your iPhone in another room (or airplane mode) for the next minute. The AirTag must be in advertising mode for CatScan to detect it.
+          Hold the Tile Sticker close to any ESP32 node for the next minute so CatScan can detect and pair it.
         </div>
         <div style={{ color: "#1ee0c9", fontSize: "1.5rem", textAlign: "center" }}>
           {pairingCountdown}s
         </div>
         <p style={{ color: "#7e93a8", fontSize: "0.75rem", textAlign: "center", marginTop: "0.5rem" }}>
-          Hold the AirTag near any ESP32 node…
+          Hold the Tile near any ESP32 node…
         </p>
       </div>
     );
@@ -140,7 +140,7 @@ export function CatPairing({ onComplete }: CatPairingProps) {
         onClick={handleSubmit}
         style={{ padding: "0.5rem 1rem", background: "#1ee0c9", color: "#0c1422", border: "none", borderRadius: 4, cursor: "pointer", fontFamily: "ui-monospace, monospace", fontSize: "0.75rem", letterSpacing: "0.1em", textTransform: "uppercase", minHeight: 44 }}
       >
-        Pair AirTag
+        Pair Tile
       </button>
     </div>
   );
