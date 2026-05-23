@@ -1,8 +1,19 @@
 # CatScan
 
-Indoor cat location tracking using ESP32 BLE sniffers + Apple AirTags on a Raspberry Pi 3B.
+Indoor cat location tracking using ESP32 BLE scanners, Tile Sticker trackers, and a Raspberry Pi.
 
-**Full design spec:** [docs/superpowers/specs/2026-05-11-catscan-design.md](docs/superpowers/specs/2026-05-11-catscan-design.md)
+Track which room your cats are in, see real-time transitions on a dashboard, and build up heatmaps of where they spend their time.
+
+---
+
+## How it works
+
+1. **Tile Stickers** on cat collars broadcast BLE advertisements every ~2 seconds.
+2. **ESP32 nodes** (one per room) passively scan for Tile advertisements and publish RSSI readings to an MQTT broker.
+3. A **Raspberry Pi** runs the server — it smooths RSSI data, compares against calibrated room fingerprints, and determines which room each cat is in.
+4. A **web dashboard** shows live positions on a floor plan, room transition history, and heatmaps.
+
+The system handles Tile Sticker BLE MAC address rotation automatically via RSSI fingerprint matching — when a Tile's MAC changes, the server re-identifies it within seconds using the signal pattern across nodes.
 
 ---
 
@@ -10,13 +21,26 @@ Indoor cat location tracking using ESP32 BLE sniffers + Apple AirTags on a Raspb
 
 | Qty | Item |
 |-----|------|
-| 6 | ESP32 dev boards (one per room / hallway) |
-| 1 | Raspberry Pi 3B (server + MQTT broker) |
-| N | Apple AirTags (one per cat) |
+| 1 per room | ESP32 dev boards (BLE scanner nodes) |
+| 1 | Raspberry Pi 3B+ or newer (server + MQTT broker) |
+| 1 per cat | Tile Sticker (BLE tracker, attaches to collar) |
 
 ---
 
-## Pi prep
+## Architecture
+
+```
+Tile Sticker ~~BLE~~> ESP32 node --WiFi/MQTT--> Raspberry Pi (server)
+                                                     |
+                                                  SQLite DB
+                                                     |
+                                              Web Dashboard (React)
+                                            http://<pi-ip>:8787
+```
+
+---
+
+## Pi setup
 
 Flash Raspberry Pi OS Lite (32-bit), SSH in, then:
 
@@ -44,15 +68,13 @@ pnpm install
 pnpm setup
 ```
 
-`pnpm setup` runs `scripts/setup.mjs` which:
+`pnpm setup` runs an interactive installer that:
 
 1. Prompts for Mosquitto password, WiFi credentials, and timezone.
-2. Generates a fresh `CATSCAN_TOKEN` and writes `.env`.
-3. Writes `mosquitto.passwd` (requires `mosquitto_passwd` from the `mosquitto-clients` package).
-4. Writes `/etc/mosquitto/conf.d/catscan.conf` (requires root; prints instructions otherwise).
-5. Builds server + web.
-6. Updates `scripts/catscan.service` with your timezone.
-7. If running as root: `systemctl enable --now catscan`.
+2. Generates a `CATSCAN_TOKEN` and writes `.env`.
+3. Configures Mosquitto authentication.
+4. Builds the server and web dashboard.
+5. Installs and enables the systemd service.
 
 After setup, the dashboard is available at `http://<pi-ip>:8787`.
 
@@ -60,50 +82,81 @@ After setup, the dashboard is available at `http://<pi-ip>:8787`.
 
 ## ESP32 firmware
 
-**PlatformIO** is required to build and flash the firmware:
+[PlatformIO](https://platformio.org/) is required:
 
 ```sh
 pip install platformio
-# or on macOS:
-brew install platformio
 ```
 
-Firmware flashing steps and smoke test: [firmware/SMOKE.md](firmware/SMOKE.md)
+1. Copy `firmware/include/secrets.example.h` to `firmware/include/secrets.h` and fill in your WiFi and MQTT credentials (`pnpm setup` prints the values).
+2. Plug in an ESP32 via USB.
+3. Flash:
 
-Credentials go in `firmware/include/secrets.h` (gitignored). `pnpm setup` prints the values to fill in.
+```sh
+cd firmware
+pio run -e esp32dev -t upload --upload-port /dev/<your-usb-port>
+```
+
+Repeat for each ESP32 node. Each board auto-derives a unique node ID from its hardware MAC.
+
+See [firmware/SMOKE.md](firmware/SMOKE.md) for a per-board smoke test checklist.
 
 ---
 
-## Install ceremony
+## Setup ceremony
 
-Full step-by-step ceremony (node naming, AirTag pairing, walk-through calibration): see spec **§13**.
+Once hardware is deployed:
+
+1. **Pair Tiles** — Dashboard > Setup > Cats. Press "Pair Tile" for each cat, hold the Tile Sticker near any ESP32 node.
+2. **Calibrate rooms** — Dashboard > Setup > Calibrate. For each room, press Start, walk slowly around the room holding a Tile, press Stop & Save. This teaches the system the RSSI fingerprint of each room.
 
 ---
 
 ## Tuning constants
 
-Runtime tuning constants live in `server/src/orchestrator/Orchestrator.ts` (constructor defaults):
+Runtime parameters in `server/src/orchestrator/Orchestrator.ts`:
 
 | Constant | Default | Description |
 |----------|---------|-------------|
-| `alpha` | `0.2` | EMA smoothing factor (0 = no smoothing, 1 = no history) |
-| `hysteresisDbm` | `5` | Euclidean-dBm margin required before switching rooms |
-| `staleSentinelDbm` | `-100` | Imputed RSSI when a node is silent |
+| `alpha` | `0.2` | EMA smoothing factor (higher = more responsive, noisier) |
+| `hysteresisDbm` | `5` | dBm margin required before switching rooms |
+| `hysteresisTicks` | `3` | Consecutive readings needed to confirm a room change |
+| `silentSeconds` | `60` | Seconds without readings before marking a cat as silent |
+| `rssiBroadcastIntervalMs` | `1000` | How often RSSI updates are pushed to the dashboard |
+
+---
+
+## Tile MAC rotation
+
+Tile Stickers use BLE Random Static addresses that may rotate periodically. CatScan handles this automatically:
+
+- When a bound MAC goes silent and a new unbound MAC appears, the system re-binds within ~15 seconds.
+- If both cats' MACs rotate simultaneously, RSSI fingerprint matching (Hungarian algorithm) resolves which is which.
+- If cats are in the same room during rotation, the system assigns arbitrarily and self-corrects when they separate.
 
 ---
 
 ## Daily backup (optional)
 
-Add to root crontab (`sudo crontab -e`):
-
-```
+```sh
+sudo crontab -e
+# Add:
 0 3 * * * /opt/catscan/scripts/backup-db.sh
 ```
 
-Keeps the last 14 backups in `$CATSCAN_BACKUP_DIR` (default: `/opt/catscan/data/backups`).
+---
+
+## Project structure
+
+```
+firmware/       ESP32 PlatformIO project (BLE scanner + MQTT publisher)
+server/         Node.js server (MQTT ingestion, room decision, HTTP API, WebSocket)
+web/            React dashboard (Vite, TypeScript)
+scripts/        Setup and deployment scripts
+```
 
 ---
 
 ## License
 
-TBD
+MIT

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rawReadingSchema, isAirTagMac, type RawReading } from "../../src/contracts/mqtt";
+import { rawReadingSchema, isValidMac, type RawReading } from "../../src/contracts/mqtt";
 
 describe("MQTT raw reading contract", () => {
   it("accepts a fully-formed reading with timestamp", () => {
@@ -30,7 +30,7 @@ describe("MQTT raw reading contract", () => {
   });
 
   it("validates a MAC format helper", () => {
-    expect(isAirTagMac("AA:BB:CC:DD:EE:FF")).toBe(true);
-    expect(isAirTagMac("AA:BB:CC:DD:EE")).toBe(false);
+    expect(isValidMac("AA:BB:CC:DD:EE:FF")).toBe(true);
+    expect(isValidMac("AA:BB:CC:DD:EE")).toBe(false);
   });
 });

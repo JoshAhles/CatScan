@@ -12,8 +12,6 @@ import {
   TOPIC_RAW_PREFIX,
   TOPIC_HEALTH_PATTERN,
   TOPIC_HEALTH_PREFIX,
-  TOPIC_IDENTIFY_PATTERN,
-  TOPIC_IDENTIFY_PREFIX,
   parseHealthPayload,
 } from "../contracts/mqtt";
 import type { ServerEvent, Snapshot } from "../contracts/ws";
@@ -52,7 +50,6 @@ export class Orchestrator {
   private pairingController: PairingWindowController;
   private nodeIds: string[] = [];
   private startedAt: number;
-  private rotationTimer: ReturnType<typeof setInterval> | null = null;
   private rssiTimer: ReturnType<typeof setInterval> | null = null;
   private sweepTimer: ReturnType<typeof setInterval> | null = null;
   private readonly cfg: Required<Omit<OrchestratorConfig, "store" | "ws" | "mqttClient">>;
@@ -133,20 +130,14 @@ export class Orchestrator {
     if (this.mqttClient) {
       this.mqttClient.subscribe(TOPIC_RAW_PATTERN);
       this.mqttClient.subscribe(TOPIC_HEALTH_PATTERN);
-      this.mqttClient.subscribe(TOPIC_IDENTIFY_PATTERN);
       this.mqttClient.on("message", (topic: string, payload: Buffer) => {
         if (topic.startsWith(TOPIC_RAW_PREFIX)) {
           this.ingestor.handleMessage(topic, payload);
         } else if (topic.startsWith(TOPIC_HEALTH_PREFIX)) {
           this.handleHealth(topic.slice(TOPIC_HEALTH_PREFIX.length), payload);
-        } else if (topic.startsWith(TOPIC_IDENTIFY_PREFIX)) {
-          this.handleIdentify(payload);
         }
       });
     }
-
-    // Rotation window timer — check at 04:00 local time
-    this.scheduleRotationTimer();
 
     // Staleness sweep — detects devices that stopped advertising and triggers rebind
     this.sweepTimer = setInterval(() => this.sweepAndRebind(), 10_000);
@@ -162,10 +153,6 @@ export class Orchestrator {
   }
 
   stop() {
-    if (this.rotationTimer) {
-      clearInterval(this.rotationTimer);
-      this.rotationTimer = null;
-    }
     if (this.rssiTimer) {
       clearInterval(this.rssiTimer);
       this.rssiTimer = null;
@@ -263,40 +250,6 @@ export class Orchestrator {
     return { room: result.room, samples: result.samples, saved: result.centroid !== null };
   }
 
-  private handleIdentify(payload: Buffer) {
-    let parsed: { m: string; tid: string };
-    try {
-      parsed = JSON.parse(payload.toString("utf8"));
-    } catch { return; }
-    const { m: mac, tid: tileId } = parsed;
-    if (!mac || !tileId || tileId === "UNKNOWN") return;
-
-    const ts = this.cfg.nowSec();
-
-    // If pairing window is open and this tileId is unknown, pair it to the waiting cat
-    let catId = this.store.findCatByTileId(tileId);
-    if (catId === null && this.pairingController.isOpen()) {
-      const pairResult = this.pairingController.consider(mac, -20); // force accept with strong fake RSSI
-      if (pairResult.resolved) {
-        catId = pairResult.catId;
-        this.store.pairTileId(tileId, catId, ts);
-        console.log(`[identify] PAIRED tileId ${tileId} → cat ${catId}`);
-      }
-    }
-
-    if (catId === null) {
-      console.log(`[identify] Unknown tileId ${tileId} (MAC ${mac}) — pair via Setup`);
-      return;
-    }
-
-    // Check if this MAC is already bound to the right cat
-    const currentCat = this.store.findCatByMac(mac);
-    if (currentCat === catId) return;
-
-    console.log(`[identify] tileId ${tileId} → cat ${catId}, binding MAC ${mac}`);
-    this.store.bindMac(mac, catId, "auto", ts);
-    this.resolver.bind(mac, catId, "auto");
-  }
 
   getPairingController(): PairingWindowController {
     return this.pairingController;
@@ -504,53 +457,6 @@ export class Orchestrator {
     }
   }
 
-  private handleRotationWindow() {
-    // At 04:00, attempt rebind for all MACs that have gone silent
-    const cats = this.store.listCats();
-    const silentMacs = cats
-      .map(c => ({ catId: c.id as number, mac: this.getMacForCat(c.id as number) }))
-      .filter(x => x.mac === null)
-      .map(x => x.mac)
-      .filter(Boolean) as string[];
-
-    if (silentMacs.length === 0) return;
-
-    const result = this.resolver.attemptRebind(silentMacs, Date.now());
-    if (result.kind === "autoRebound") {
-      const ts = Math.floor(Date.now() / 1000);
-      for (const { mac, catId } of result.pairings) {
-        this.store.bindMac(mac, catId, "auto", ts);
-        this.resolver.bind(mac, catId, "auto");
-      }
-    } else if (result.kind === "ambiguous") {
-      const event: ServerEvent = {
-        type: "identityAmbiguous",
-        candidates: result.candidates,
-        at: this.cfg.nowSec(),
-      };
-      this.ws.broadcast(event);
-    }
-  }
-
-  private getMacForCat(catId: number): string | null {
-    // Find the currently-bound MAC for a cat
-    const cats = this.store.listCats();
-    void cats;
-    // We need to query the binding — use a reverse lookup
-    // This is a limitation: EventStore doesn't have findMacByCat; we iterate known macs
-    // In practice, the resolver tracks this state
-    return null;
-  }
-
-  private scheduleRotationTimer() {
-    // Check every minute whether it's ~04:00 local time
-    this.rotationTimer = setInterval(() => {
-      const now = new Date();
-      if (now.getHours() === 4 && now.getMinutes() === 0) {
-        this.handleRotationWindow();
-      }
-    }, 60_000);
-  }
 
   private buildSnapshot(): Snapshot {
     const cats = this.store.listCats();

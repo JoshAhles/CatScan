@@ -91,7 +91,7 @@ export function installDemo(): () => void {
     dispatch(makeRssiUpdateEvent(cats, nodes));
   }, RSSI_INTERVAL_MS);
 
-  // Occasionally silence a cat (e.g. AirTag rotated, briefly out of range)
+  // Occasionally silence a cat (e.g. Tile MAC rotated, briefly out of range)
   // then re-detect them — exercises the full silent → unsilent code path.
   const unsilentTimeouts = new Set<number>();
   const silentCycleTimer = window.setInterval(() => {

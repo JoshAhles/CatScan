@@ -3,20 +3,17 @@ import { SetupView } from "../../src/views/SetupView";
 
 it("renders setup tabs", () => {
   render(<SetupView />);
-  expect(screen.getByText("NODES")).toBeInTheDocument();
   expect(screen.getByText("CATS")).toBeInTheDocument();
   expect(screen.getByText("CALIBRATE")).toBeInTheDocument();
 });
 
-it("switches to CATS tab and shows cat pairing form", () => {
+it("shows cat pairing on default tab", () => {
   render(<SetupView />);
-  fireEvent.click(screen.getByText("CATS"));
-  expect(screen.getByText(/Pair AirTag/i)).toBeInTheDocument();
+  expect(screen.getByText(/Pair Tiles to Cats/i)).toBeInTheDocument();
 });
 
-it("switches to CALIBRATE tab and shows iPhone reminder", () => {
+it("switches to CALIBRATE tab and shows calibration instructions", () => {
   render(<SetupView />);
   fireEvent.click(screen.getByText("CALIBRATE"));
-  expect(screen.getByText(/Detach one AirTag/i)).toBeInTheDocument();
-  expect(screen.getByText(/iPhone/i)).toBeInTheDocument();
+  expect(screen.getByText(/Tile Sticker/i)).toBeInTheDocument();
 });

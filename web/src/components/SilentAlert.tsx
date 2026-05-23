@@ -17,7 +17,7 @@ function formatDuration(seconds: number): string {
  * pill opens that cat's detail panel.
  *
  * Rationale: a cat going silent for a few minutes is normal RSSI noise — but
- * extended silence usually means a dead AirTag battery, a hardware blind
+ * extended silence usually means a dead Tile battery, a hardware blind
  * spot, or the cat is hiding somewhere RSSI-dead. The owner wants to know.
  */
 export function SilentAlert() {

@@ -16,9 +16,6 @@ export const TOPIC_RAW_PREFIX = "catscan/raw/";
 export const TOPIC_RAW_PATTERN = "catscan/raw/+";
 export const TOPIC_HEALTH_PREFIX = "catscan/health/";
 export const TOPIC_HEALTH_PATTERN = "catscan/health/+";
-export const TOPIC_IDENTIFY_PREFIX = "catscan/identify/";
-export const TOPIC_IDENTIFY_PATTERN = "catscan/identify/+";
-
 export type HealthStatus = "online" | "offline";
 
 export function parseHealthPayload(payload: string): HealthStatus | null {
@@ -26,6 +23,6 @@ export function parseHealthPayload(payload: string): HealthStatus | null {
   return s === "online" || s === "offline" ? s : null;
 }
 
-export function isAirTagMac(s: string): boolean {
+export function isValidMac(s: string): boolean {
   return MAC_REGEX.test(s);
 }

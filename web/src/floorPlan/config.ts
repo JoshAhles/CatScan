@@ -1,8 +1,7 @@
-// Derived from the user's Roborock vacuum-generated home map (2026-05-11).
-// Proportions approximate; exact dimensions are not load-bearing since the
-// Room Decider works in RSSI fingerprint space, not in pixel space.
-//
-// Tracked rooms (5):  Living Room, Kitchen, Master Bedroom, Office, Cat Room.
+// Floor plan layout for the CatScan dashboard.
+// Proportions are approximate — exact pixel dimensions don't affect tracking
+// since the Room Decider works in RSSI fingerprint space, not pixel space.
+// Customize the room polygons, names, and colors to match your home.
 // Visual-only space:  Corridor (drawn as `hallway`).
 //
 // All adjacencies are physically modeled. Kitchen shares its south wall with
