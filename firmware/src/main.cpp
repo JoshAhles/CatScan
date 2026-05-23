@@ -110,7 +110,7 @@ void loop() {
   mqtt.loop();
 
   // Drain buffer at ~one publish per 500ms (rate-limit per loop, not per MAC for simplicity v1)
-  if (millis() - lastPublishMs > 500) {
+  if (millis() - lastPublishMs > 200) {
     Reading r;
     if (buf.pop(r)) {
       std::string json = formatReading(nodeId, r.mac, r.rssi, r.ts);
