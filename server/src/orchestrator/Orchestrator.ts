@@ -12,6 +12,8 @@ import {
   TOPIC_RAW_PREFIX,
   TOPIC_HEALTH_PATTERN,
   TOPIC_HEALTH_PREFIX,
+  TOPIC_IDENTIFY_PATTERN,
+  TOPIC_IDENTIFY_PREFIX,
   parseHealthPayload,
 } from "../contracts/mqtt";
 import type { ServerEvent, Snapshot } from "../contracts/ws";
@@ -131,11 +133,14 @@ export class Orchestrator {
     if (this.mqttClient) {
       this.mqttClient.subscribe(TOPIC_RAW_PATTERN);
       this.mqttClient.subscribe(TOPIC_HEALTH_PATTERN);
+      this.mqttClient.subscribe(TOPIC_IDENTIFY_PATTERN);
       this.mqttClient.on("message", (topic: string, payload: Buffer) => {
         if (topic.startsWith(TOPIC_RAW_PREFIX)) {
           this.ingestor.handleMessage(topic, payload);
         } else if (topic.startsWith(TOPIC_HEALTH_PREFIX)) {
           this.handleHealth(topic.slice(TOPIC_HEALTH_PREFIX.length), payload);
+        } else if (topic.startsWith(TOPIC_IDENTIFY_PREFIX)) {
+          this.handleIdentify(payload);
         }
       });
     }
@@ -256,6 +261,41 @@ export class Orchestrator {
       });
     }
     return { room: result.room, samples: result.samples, saved: result.centroid !== null };
+  }
+
+  private handleIdentify(payload: Buffer) {
+    let parsed: { m: string; tid: string };
+    try {
+      parsed = JSON.parse(payload.toString("utf8"));
+    } catch { return; }
+    const { m: mac, tid: tileId } = parsed;
+    if (!mac || !tileId || tileId === "UNKNOWN") return;
+
+    const ts = this.cfg.nowSec();
+
+    // If pairing window is open and this tileId is unknown, pair it to the waiting cat
+    let catId = this.store.findCatByTileId(tileId);
+    if (catId === null && this.pairingController.isOpen()) {
+      const pairResult = this.pairingController.consider(mac, -20); // force accept with strong fake RSSI
+      if (pairResult.resolved) {
+        catId = pairResult.catId;
+        this.store.pairTileId(tileId, catId, ts);
+        console.log(`[identify] PAIRED tileId ${tileId} → cat ${catId}`);
+      }
+    }
+
+    if (catId === null) {
+      console.log(`[identify] Unknown tileId ${tileId} (MAC ${mac}) — pair via Setup`);
+      return;
+    }
+
+    // Check if this MAC is already bound to the right cat
+    const currentCat = this.store.findCatByMac(mac);
+    if (currentCat === catId) return;
+
+    console.log(`[identify] tileId ${tileId} → cat ${catId}, binding MAC ${mac}`);
+    this.store.bindMac(mac, catId, "auto", ts);
+    this.resolver.bind(mac, catId, "auto");
   }
 
   getPairingController(): PairingWindowController {

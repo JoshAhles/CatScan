@@ -55,6 +55,19 @@ export class EventStore {
     return row?.mac ?? null;
   }
 
+  findCatByTileId(tileId: string): number | null {
+    const row = this.db.prepare(`SELECT cat_id FROM tile_identities WHERE tile_id = ?`).get(tileId) as { cat_id?: number } | undefined;
+    return row?.cat_id ?? null;
+  }
+
+  pairTileId(tileId: string, catId: number, ts: number) {
+    this.db.prepare(`INSERT OR REPLACE INTO tile_identities(tile_id, cat_id, paired_at) VALUES(?, ?, ?)`).run(tileId, catId, ts);
+  }
+
+  listTileIdentities(): Array<{ tile_id: string; cat_id: number }> {
+    return this.db.prepare(`SELECT tile_id, cat_id FROM tile_identities`).all() as Array<{ tile_id: string; cat_id: number }>;
+  }
+
   openRoomState(catId: number, room: string | null, ts: number) {
     this.db.prepare(`INSERT INTO room_states(cat_id, room, started_at) VALUES(?, ?, ?)`).run(catId, room, ts);
   }
