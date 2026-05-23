@@ -75,6 +75,13 @@ export class EventStore {
     return this.db.prepare(`SELECT * FROM room_states WHERE cat_id = ? AND ended_at IS NULL`).get(catId) as any;
   }
 
+  lastKnownRoom(catId: number): { room: string; started_at: number } | null {
+    const row = this.db.prepare(
+      `SELECT room, started_at FROM room_states WHERE cat_id = ? AND room IS NOT NULL ORDER BY started_at DESC LIMIT 1`
+    ).get(catId) as { room: string; started_at: number } | undefined;
+    return row ?? null;
+  }
+
   saveCentroid(room: string, vector: number[], sampleCount: number, ts: number) {
     this.db.prepare(`INSERT OR REPLACE INTO room_centroids(room, centroid_json, sample_count, captured_at)
                      VALUES(?, ?, ?, ?)`).run(room, JSON.stringify(vector), sampleCount, ts);

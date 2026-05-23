@@ -422,18 +422,18 @@ export class Orchestrator {
     if (needsBinding.length === 0) return;
 
     // Step 3: which MACs are available (broadcasting but not bound to any cat)?
+    // A MAC is available if ANY node's smoother for it is fresh.
     const availableMacs: string[] = [];
     const seenMacs = new Set<string>();
     for (const key of this.smoothers.keys()) {
       const mac = key.split("|")[0]!;
       if (seenMacs.has(mac)) continue;
       seenMacs.add(mac);
-      if (this.store.findCatByMac(mac) === null) {
-        const smoother = this.smoothers.get(key);
-        if (smoother && smoother.isFresh(nowMs, this.cfg.nodeStaleSeconds)) {
-          availableMacs.push(mac);
-        }
-      }
+      if (this.store.findCatByMac(mac) !== null) continue;
+      const anyFresh = [...this.smoothers.entries()].some(
+        ([k, s]) => k.startsWith(mac + "|") && s.isFresh(nowMs, this.cfg.nodeStaleSeconds)
+      );
+      if (anyFresh) availableMacs.push(mac);
     }
 
     if (availableMacs.length === 0) return;
@@ -490,6 +490,7 @@ export class Orchestrator {
           photoPath: (c.photo_path ?? null) as string | null,
         };
       }
+      const lastKnown = this.store.lastKnownRoom(c.id as number);
       return {
         id: c.id as number,
         name: c.name as string,
@@ -497,8 +498,8 @@ export class Orchestrator {
         room: null,
         since: null,
         silent: true as const,
-        lastRoom: currentState?.room ?? null,
-        lastSeen: currentState?.started_at ?? null,
+        lastRoom: (lastKnown?.room ?? null) as string | null,
+        lastSeen: (lastKnown?.started_at ?? null) as number | null,
         photoPath: (c.photo_path ?? null) as string | null,
       };
     });
