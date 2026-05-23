@@ -379,6 +379,7 @@ export class Orchestrator {
 
     // Phase 1: detect MACs that the decider was tracking but stopped advertising
     const gone = this.decider.sweepSilent(nowMs);
+    if (gone.length > 0) console.log(`[sweepAndRebind] sweepSilent found ${gone.length} gone MACs: ${gone.map(g => g.mac).join(", ")}`);
     for (const { mac, lastRoom } of gone) {
       const catId = this.store.findCatByMac(mac);
       this.resolver.markSilent(mac, nowMs);
@@ -441,12 +442,14 @@ export class Orchestrator {
       if (orphanedCats.length === 1 && unboundMacs.length === 1) {
         const catId = orphanedCats[0]!.id as number;
         const mac = unboundMacs[0]!;
+        console.log(`[sweepAndRebind] orphan rebind: cat ${catId} → ${mac}`);
         this.store.bindMac(mac, catId, "auto", ts);
         this.resolver.bind(mac, catId, "auto");
         return;
       }
       // Multiple orphans + multiple newcomers: can't distinguish without fingerprints
       if (orphanedCats.length > 0 && unboundMacs.length > 0) {
+        console.log(`[sweepAndRebind] ambiguous: ${orphanedCats.length} orphans, ${unboundMacs.length} newcomers`);
         const event: ServerEvent = {
           type: "identityAmbiguous",
           candidates: unboundMacs.map(mac => ({ mac, fingerprint: [] })),
@@ -459,6 +462,7 @@ export class Orchestrator {
 
     // Normal fingerprint-based rebind for MACs that went through sweepSilent
     const result = this.resolver.attemptRebind(unboundMacs, nowMs);
+    console.log(`[sweepAndRebind] attemptRebind result: ${result.kind}`, result.kind === "autoRebound" ? result.pairings : "");
     if (result.kind === "autoRebound") {
       for (const { mac, catId } of result.pairings) {
         this.store.bindMac(mac, catId, "auto", ts);
