@@ -249,6 +249,7 @@ export const useWsStore = create<WsState>((set, get) => ({
   cats: [],
   nodes: [],
   calibration: {},
+  calibrationProgress: null,
   events: [],
   transitions: [],
   selectedCatId: null,
