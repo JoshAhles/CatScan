@@ -69,7 +69,7 @@ export class Orchestrator {
       nodeStaleSeconds: options.nodeStaleSeconds ?? 30,
       staleSentinelDbm: options.staleSentinelDbm ?? -100,
       rotationConfidenceRatio: options.rotationConfidenceRatio ?? 0.5,
-      minCalibrationSamples: options.minCalibrationSamples ?? 15,
+      minCalibrationSamples: options.minCalibrationSamples ?? 30,
       pairingWindowMs: options.pairingWindowMs ?? 60_000,
       pairingMinRssi: options.pairingMinRssi ?? -50,
       rssiBroadcastIntervalMs: options.rssiBroadcastIntervalMs ?? 5_000,
