@@ -52,6 +52,7 @@ export class Orchestrator {
   private startedAt: number;
   private rotationTimer: ReturnType<typeof setInterval> | null = null;
   private rssiTimer: ReturnType<typeof setInterval> | null = null;
+  private sweepTimer: ReturnType<typeof setInterval> | null = null;
   private readonly cfg: Required<Omit<OrchestratorConfig, "store" | "ws" | "mqttClient">>;
 
   constructor(options: OrchestratorConfig) {
@@ -142,6 +143,9 @@ export class Orchestrator {
     // Rotation window timer — check at 04:00 local time
     this.scheduleRotationTimer();
 
+    // Staleness sweep — detects devices that stopped advertising and triggers rebind
+    this.sweepTimer = setInterval(() => this.sweepAndRebind(), 10_000);
+
     // Periodic rssiUpdate broadcaster so the UI's Telemetry panel reflects
     // fresh per-node RSSI values without waiting for a transition event.
     if (this.cfg.rssiBroadcastIntervalMs > 0) {
@@ -160,6 +164,10 @@ export class Orchestrator {
     if (this.rssiTimer) {
       clearInterval(this.rssiTimer);
       this.rssiTimer = null;
+    }
+    if (this.sweepTimer) {
+      clearInterval(this.sweepTimer);
+      this.sweepTimer = null;
     }
     if (this.mqttClient) {
       this.mqttClient.unsubscribe(TOPIC_RAW_PATTERN);
@@ -321,11 +329,15 @@ export class Orchestrator {
       }
     }
 
-    // Room decision
+    // Always record in the resolver so unbound MACs build fingerprints for rebinding
+    this.resolver.recordReading(mac, smoothedReadings, tsMs);
+
+    // Room decision — only for MACs bound to a cat
     const catId = this.store.findCatByMac(mac);
     if (catId === null) return;
 
-    this.resolver.recordReading(mac, smoothedReadings, tsMs);
+    // Ensure the resolver knows about this binding (store is authoritative)
+    this.resolver.bind(mac, catId, "manual");
 
     const decision = this.decider.tick(mac, smoothedReadings, tsMs);
     const ts = Math.floor(tsMs / 1000);
@@ -356,6 +368,62 @@ export class Orchestrator {
       this.ws.broadcast(event);
     }
     // noChange: no event emitted
+  }
+
+  sweepAndRebind() {
+    const nowMs = this.cfg.nowSec() * 1000;
+    const gone = this.decider.sweepSilent(nowMs);
+    if (gone.length === 0) return;
+
+    const ts = this.cfg.nowSec();
+
+    for (const { mac, lastRoom } of gone) {
+      const catId = this.store.findCatByMac(mac);
+      this.resolver.markSilent(mac, nowMs);
+
+      if (catId !== null) {
+        this.store.closeAndOpenRoomState(catId, lastRoom, null, ts);
+        const event: ServerEvent = {
+          type: "silent",
+          catId,
+          lastRoom,
+          lastSeen: ts,
+        };
+        this.ws.broadcast(event);
+      }
+    }
+
+    // Collect unbound MACs that have recent readings
+    const unboundMacs: string[] = [];
+    const seenMacs = new Set<string>();
+    for (const key of this.smoothers.keys()) {
+      const mac = key.split("|")[0]!;
+      if (seenMacs.has(mac)) continue;
+      seenMacs.add(mac);
+      if (this.store.findCatByMac(mac) === null) {
+        const smoother = this.smoothers.get(key);
+        if (smoother && smoother.isFresh(nowMs, this.cfg.nodeStaleSeconds)) {
+          unboundMacs.push(mac);
+        }
+      }
+    }
+
+    if (unboundMacs.length === 0) return;
+
+    const result = this.resolver.attemptRebind(unboundMacs, nowMs);
+    if (result.kind === "autoRebound") {
+      for (const { mac, catId } of result.pairings) {
+        this.store.bindMac(mac, catId, "auto", ts);
+        this.resolver.bind(mac, catId, "auto");
+      }
+    } else if (result.kind === "ambiguous") {
+      const event: ServerEvent = {
+        type: "identityAmbiguous",
+        candidates: result.candidates,
+        at: ts,
+      };
+      this.ws.broadcast(event);
+    }
   }
 
   private handleRotationWindow() {

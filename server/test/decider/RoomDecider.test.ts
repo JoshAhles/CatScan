@@ -66,4 +66,49 @@ describe("RoomDecider", () => {
     const dec = d.tick("M", { n1: -50 }, 1000);
     expect(dec.room).toBe("Front Room");
   });
+
+  describe("sweepSilent", () => {
+    it("returns MACs that have been silent longer than silentSeconds", () => {
+      d.tick("M1", { n1: -50, n2: -85, n3: -85, n4: -85, n5: -85, n6: -85 }, 1000);
+      d.tick("M2", { n1: -85, n2: -50, n3: -85, n4: -85, n5: -85, n6: -85 }, 1000);
+
+      // 61s later, neither has been heard from
+      const gone = d.sweepSilent(1000 + 61_000);
+      expect(gone).toHaveLength(2);
+      expect(gone.map(g => g.mac).sort()).toEqual(["M1", "M2"]);
+      expect(gone[0]!.lastRoom).toBeDefined();
+    });
+
+    it("does not return MACs that have recent readings", () => {
+      d.tick("M1", { n1: -50, n2: -85, n3: -85, n4: -85, n5: -85, n6: -85 }, 1000);
+      d.tick("M1", { n1: -50, n2: -85, n3: -85, n4: -85, n5: -85, n6: -85 }, 60_000);
+
+      const gone = d.sweepSilent(61_000);
+      expect(gone).toHaveLength(0);
+    });
+
+    it("clears state for swept MACs so they don't fire again", () => {
+      d.tick("M1", { n1: -50, n2: -85, n3: -85, n4: -85, n5: -85, n6: -85 }, 1000);
+
+      const first = d.sweepSilent(1000 + 61_000);
+      expect(first).toHaveLength(1);
+
+      const second = d.sweepSilent(1000 + 120_000);
+      expect(second).toHaveLength(0);
+    });
+
+    it("only returns MACs that have been placed in a room", () => {
+      // A MAC that was never placed (no tick result) shouldn't trigger silence
+      d.tick("M1", { n1: -50, n2: -85, n3: -85, n4: -85, n5: -85, n6: -85 }, 1000);
+      // M1 is placed in Front Room
+
+      // Now create a reading via recordReading for a mac that never got a room
+      d.recordReading("UNPLACED", "n1", -70, 1000);
+
+      const gone = d.sweepSilent(1000 + 61_000);
+      // Only M1 should appear (it has a room), not UNPLACED
+      expect(gone).toHaveLength(1);
+      expect(gone[0]!.mac).toBe("M1");
+    });
+  });
 });

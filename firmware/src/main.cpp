@@ -4,7 +4,6 @@
 #include <PubSubClient.h>
 #include <time.h>
 #include "secrets.h"
-#include "airtag_filter.h"
 #include "payload_formatter.h"
 #include "ring_buffer.h"
 #include "conn_state.h"
@@ -19,6 +18,7 @@ static ConnStateMachine conn;
 static RingBuffer<Reading, 50> buf;
 static std::string nodeId;
 static unsigned long lastPublishMs = 0;
+static const NimBLEUUID TILE_SERVICE_UUID("feed");
 
 static std::string deriveNodeId() {
   uint8_t mac[6]; WiFi.macAddress(mac);
@@ -29,11 +29,10 @@ static std::string deriveNodeId() {
 
 class ScanCallbacks : public NimBLEAdvertisedDeviceCallbacks {
   void onResult(NimBLEAdvertisedDevice* dev) override {
-    if (!dev->haveManufacturerData()) return;
-    std::string m = dev->getManufacturerData();
-    if (!isAirTagAdvertisement(reinterpret_cast<const uint8_t*>(m.data()), m.size())) return;
+    if (!dev->isAdvertisingService(TILE_SERVICE_UUID)) return;
 
     std::string macStr = dev->getAddress().toString();
+    if (macStr.size() < 17 || macStr == "00:00:00:00:00:00") return;
     for (auto& c : macStr) c = toupper(c);
 
     time_t now = time(nullptr);
@@ -45,6 +44,7 @@ class ScanCallbacks : public NimBLEAdvertisedDeviceCallbacks {
 
 static void connectWifi() {
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
   WiFi.begin(CATSCAN_WIFI_SSID, CATSCAN_WIFI_PASS);
 }
 
@@ -65,6 +65,15 @@ void setup() {
   conn.onEvent(ConnEvent::START);
   connectWifi();
 
+  Serial.print("Waiting for WiFi");
+  int tries = 0;
+  while (WiFi.status() != WL_CONNECTED && tries < 40) {
+    delay(500);
+    Serial.print(".");
+    tries++;
+  }
+  Serial.println(WiFi.status() == WL_CONNECTED ? " connected" : " timeout, will retry in loop");
+
   configTime(0, 0, CATSCAN_NTP_HOST);
 
   NimBLEDevice::init("");
@@ -79,6 +88,12 @@ void setup() {
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     if (conn.state() == ConnState::READY) conn.onEvent(ConnEvent::WIFI_DOWN);
+    static unsigned long lastWifiRetry = 0;
+    if (millis() - lastWifiRetry > 10000) {
+      WiFi.disconnect();
+      WiFi.begin(CATSCAN_WIFI_SSID, CATSCAN_WIFI_PASS);
+      lastWifiRetry = millis();
+    }
     delay(500);
     return;
   } else if (conn.state() == ConnState::WIFI_CONNECTING) {

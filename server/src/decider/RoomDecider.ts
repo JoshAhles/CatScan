@@ -70,6 +70,20 @@ export class RoomDecider {
     return { kind: "noChange", room: s.currentRoom };
   }
 
+  sweepSilent(nowMs: number): Array<{ mac: string; lastRoom: string }> {
+    const results: Array<{ mac: string; lastRoom: string }> = [];
+    for (const [mac, s] of this.state) {
+      if (s.currentRoom === null) continue;
+      if ((nowMs - s.lastReadingTsMs) > this.cfg.silentSeconds * 1000) {
+        results.push({ mac, lastRoom: s.currentRoom });
+        s.currentRoom = null;
+        s.candidateRoom = null;
+        s.candidateStreak = 0;
+      }
+    }
+    return results;
+  }
+
   private getOrInit(mac: string): PerMacState {
     let s = this.state.get(mac);
     if (!s) {
