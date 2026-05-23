@@ -277,7 +277,7 @@ export function FloorPlan({ cats, heatLayer, compact = false, onCatSelect }: Flo
           key={`fill-${room.name}`}
           points={polygonPath(room.polygon)}
           className={styles.roomFill}
-          style={{ fill: room.color, fillOpacity: 0.42 }}
+          style={{ fill: room.color, fillOpacity: heatLayer ? 0.08 : 0.42 }}
         />
       ))}
 

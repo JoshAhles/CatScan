@@ -3,7 +3,7 @@ import { useWsStore } from "../stores/wsStore";
 import { FloorPlan } from "./FloorPlan";
 import { rssiBars } from "./rssi";
 import { floorPlanConfig } from "../floorPlan/config";
-import { computeHeat } from "../demo/heatProfile";
+import { api } from "../api/client";
 import { SLEEP_THRESHOLD_SEC, formatDuration } from "../lib/duration";
 import type { CatState } from "../types/contracts";
 import type { TransitionRecord } from "../stores/wsStore";
@@ -130,29 +130,39 @@ export function CatDetailPanel({ cat, onClose }: CatDetailPanelProps) {
       .slice(0, 6);
   }, [transitions, cat.id]);
 
-  // Per-cat heat signature (last 7 days, all hours). Memoized JSX so the
-  // mini FloorPlan doesn't reconcile a fresh heat layer every 1s tick.
+  // Per-cat heat signature from real API data (last 7 days).
+  const [heatData, setHeatData] = useState<Array<{ room: string; durationSec: number }>>([]);
+  useEffect(() => {
+    const to = Math.floor(Date.now() / 1000);
+    const from = to - 7 * 24 * 3600;
+    api<Array<{ room: string; durationSec: number }>>(`/api/heatmap?catId=${cat.id}&from=${from}&to=${to}`)
+      .then(setHeatData)
+      .catch(() => setHeatData([]));
+  }, [cat.id]);
+
   const heatLayer = useMemo(() => {
-    const points = computeHeat({ catIds: [cat.id], days: 7, hourFrom: 0, hourTo: 24 });
-    const maxIntensity = Math.max(1, ...points.map((p) => p.intensity));
+    if (heatData.length === 0) return null;
+    const maxSec = Math.max(1, ...heatData.map((h) => h.durationSec));
     return (
-      <g filter="url(#cs-heat-blur)">
-        {points.map((p, i) => {
-          const t = p.intensity / maxIntensity;
+      <g>
+        {floorPlanConfig.rooms.map((room) => {
+          const entry = heatData.find((h) => h.room === room.name);
+          if (!entry || entry.durationSec === 0) return null;
+          const t = entry.durationSec / maxSec;
+          const opacity = 0.1 + 0.6 * t;
           return (
-            <circle
-              key={i}
-              cx={p.x}
-              cy={p.y}
-              r={22 + 28 * t}
+            <polygon
+              key={room.name}
+              points={room.polygon.map(([x, y]) => `${x},${y}`).join(" ")}
               fill={cat.color}
-              opacity={0.18 + 0.55 * t}
+              opacity={opacity}
+              style={{ mixBlendMode: "screen" }}
             />
           );
         })}
       </g>
     );
-  }, [cat.id, cat.color]);
+  }, [heatData, cat.id, cat.color]);
 
   const locationLine = cat.silent ? (
     <>
