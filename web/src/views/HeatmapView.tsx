@@ -201,7 +201,7 @@ export function HeatmapView() {
             <div className={styles.heatEmptyTitle}>NO DATA YET</div>
             <div className={styles.heatEmptySub}>
               {cats.length === 0
-                ? "Add cats in SETUP and pair AirTags to start tracking."
+                ? "Add cats in SETUP and pair Tiles to start tracking."
                 : "Heat will accumulate as your cats move between rooms."}
             </div>
           </div>
