@@ -41,6 +41,7 @@ export class EventStore {
 
   bindMac(mac: string, catId: number, source: "auto"|"manual"|"provisional", tsSec: number) {
     this.db.prepare(`UPDATE mac_bindings SET unbound_at = ? WHERE mac = ? AND unbound_at IS NULL`).run(tsSec, mac);
+    this.db.prepare(`UPDATE mac_bindings SET unbound_at = ? WHERE cat_id = ? AND unbound_at IS NULL`).run(tsSec, catId);
     this.db.prepare(`INSERT INTO mac_bindings(mac, cat_id, bound_at, source) VALUES(?, ?, ?, ?)`)
             .run(mac, catId, tsSec, source);
   }
