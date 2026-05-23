@@ -20,7 +20,7 @@ export class Ingestor {
     }
     const now = this.deps.nowSec();
     const t = parsed.t ?? now;
-    if (Math.abs(now - t) > 5) return;
+    if (Math.abs(now - t) > 30) return;
     if (!this.deps.knownNodeId(parsed.n)) this.deps.onNodeDiscovered(parsed.n);
     this.deps.onReading({ ...parsed, t });
   }

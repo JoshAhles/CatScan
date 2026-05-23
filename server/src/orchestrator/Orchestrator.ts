@@ -355,9 +355,6 @@ export class Orchestrator {
     const catId = this.store.findCatByMac(mac);
     if (catId === null) return;
 
-    // Ensure the resolver knows about this binding (store is authoritative)
-    this.resolver.bind(mac, catId, "manual");
-
     const decision = this.decider.tick(mac, smoothedReadings, tsMs);
     const ts = Math.floor(tsMs / 1000);
 
@@ -394,7 +391,6 @@ export class Orchestrator {
   sweepAndRebind() {
     const nowMs = this.cfg.nowSec() * 1000;
     const ts = this.cfg.nowSec();
-    const STALE_SEC = 15;
 
     // Step 1: mark silent any MACs the decider was tracking that stopped advertising
     const gone = this.decider.sweepSilent(nowMs);
@@ -408,7 +404,7 @@ export class Orchestrator {
     }
 
     // Step 2: which cats need a (new) binding?
-    // A cat needs binding if: no binding at all, OR its bound MAC has no fresh readings.
+    // A cat needs binding if: no binding, or bound MAC has no fresh readings.
     const cats = this.store.listCats();
     const needsBinding: number[] = [];
     for (const cat of cats) {
@@ -418,7 +414,7 @@ export class Orchestrator {
         continue;
       }
       const hasFresh = [...this.smoothers.entries()].some(
-        ([key, s]) => key.startsWith(mac + "|") && s.isFresh(nowMs, STALE_SEC)
+        ([key, s]) => key.startsWith(mac + "|") && s.isFresh(nowMs, this.cfg.nodeStaleSeconds)
       );
       if (!hasFresh) needsBinding.push(cat.id as number);
     }
@@ -443,28 +439,26 @@ export class Orchestrator {
     if (availableMacs.length === 0) return;
 
     // Step 4: bind available MACs to cats that need them
+    // 1:1 — direct bind, no ambiguity
     if (needsBinding.length === 1 && availableMacs.length === 1) {
-      // 1:1 — direct bind, no ambiguity
       console.log(`[sweep] bind: cat ${needsBinding[0]} → ${availableMacs[0]}`);
       this.store.bindMac(availableMacs[0]!, needsBinding[0]!, "auto", ts);
       this.resolver.bind(availableMacs[0]!, needsBinding[0]!, "auto");
       return;
     }
 
-    // N:M — try fingerprint matching if we have departure data
-    if (gone.length > 0) {
-      const result = this.resolver.attemptRebind(availableMacs, nowMs);
-      if (result.kind === "autoRebound") {
-        console.log(`[sweep] fingerprint rebind: ${result.pairings.map(p => `cat ${p.catId} → ${p.mac}`).join(", ")}`);
-        for (const { mac, catId } of result.pairings) {
-          this.store.bindMac(mac, catId, "auto", ts);
-          this.resolver.bind(mac, catId, "auto");
-        }
-        return;
+    // N:M — always try fingerprint matching first (uses departure data if available)
+    const result = this.resolver.attemptRebind(availableMacs, nowMs);
+    if (result.kind === "autoRebound") {
+      console.log(`[sweep] fingerprint rebind: ${result.pairings.map(p => `cat ${p.catId} → ${p.mac}`).join(", ")}`);
+      for (const { mac, catId } of result.pairings) {
+        this.store.bindMac(mac, catId, "auto", ts);
+        this.resolver.bind(mac, catId, "auto");
       }
+      return;
     }
 
-    // Fallback: equal count → assign sequentially (may swap cats, self-corrects when they separate)
+    // Fallback: assign sequentially (when fingerprints are ambiguous, e.g. both cats in same room)
     if (needsBinding.length <= availableMacs.length) {
       console.log(`[sweep] sequential bind: ${needsBinding.length} cats → ${availableMacs.length} MACs`);
       for (let i = 0; i < needsBinding.length; i++) {

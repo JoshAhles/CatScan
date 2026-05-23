@@ -29,14 +29,11 @@ export class RoomDecider {
     for (const [n, r] of Object.entries(readings)) this.recordReading(mac, n, r, nowMs);
     const s = this.getOrInit(mac);
 
-    // Silence detection
-    if (s.currentRoom !== null && (nowMs - s.lastReadingTsMs) > this.cfg.silentSeconds * 1000) {
-      const last = s.currentRoom;
-      s.currentRoom = null;
-      return { kind: "silent", lastRoom: last };
-    }
+    // Silence is detected by sweepSilent() on a timer, not here.
+    // (recordReading above already set lastReadingTsMs = nowMs, so an
+    // inline check would always see 0 elapsed time.)
 
-    // Build 6-vector with imputation
+    // Build vector with imputation for missing nodes
     const v = this.cfg.nodeIds.map(n => s.lastVector[n] ?? this.cfg.staleSentinelDbm);
 
     if (!s.currentRoom) {

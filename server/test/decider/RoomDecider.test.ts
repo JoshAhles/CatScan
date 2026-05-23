@@ -55,10 +55,11 @@ describe("RoomDecider", () => {
     expect(dec.kind).toBe("noChange");
   });
 
-  it("emits silent state after silentSeconds with no readings", () => {
-    d.tick("M", { n1: -50 }, 1000);
-    const dec = d.tick("M", {}, 1000 + 61_000);
-    expect(dec.kind).toBe("silent");
+  it("silence is detected by sweepSilent, not by tick", () => {
+    d.tick("M", { n1: -50, n2: -85, n3: -85, n4: -85, n5: -85, n6: -85 }, 1000);
+    const gone = d.sweepSilent(1000 + 61_000);
+    expect(gone).toHaveLength(1);
+    expect(gone[0]!.lastRoom).toBe("Front Room");
   });
 
   it("missing nodes are imputed with the sentinel", () => {

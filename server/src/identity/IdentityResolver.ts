@@ -55,11 +55,13 @@ export class IdentityResolver {
   }
 
   private fingerprint(r: MacRolling, ts: number): number[] {
+    const cutoff = ts - FP_WINDOW_MS;
     return this.cfg.nodeIds.map(n => {
       const arr = r.recent.get(n);
       if (!arr || !arr.length) return this.cfg.staleSentinelDbm;
-      const mean = arr.reduce((s, x) => s + x.rssi, 0) / arr.length;
-      return mean;
+      const fresh = arr.filter(x => x.ts >= cutoff);
+      if (!fresh.length) return this.cfg.staleSentinelDbm;
+      return fresh.reduce((s, x) => s + x.rssi, 0) / fresh.length;
     });
   }
 
