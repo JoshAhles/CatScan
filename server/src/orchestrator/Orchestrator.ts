@@ -416,40 +416,33 @@ export class Orchestrator {
   sweepAndRebind() {
     const nowMs = this.cfg.nowSec() * 1000;
     const ts = this.cfg.nowSec();
+    const ORPHAN_STALE_MS = 15_000;
 
     // Phase 1: detect MACs that the decider was tracking but stopped advertising
     const gone = this.decider.sweepSilent(nowMs);
-    if (gone.length > 0) console.log(`[sweepAndRebind] sweepSilent found ${gone.length} gone MACs: ${gone.map(g => g.mac).join(", ")}`);
+    if (gone.length > 0) console.log(`[sweep] silent: ${gone.map(g => g.mac).join(", ")}`);
     for (const { mac, lastRoom } of gone) {
       const catId = this.store.findCatByMac(mac);
       this.resolver.markSilent(mac, nowMs);
-
       if (catId !== null) {
         this.store.closeAndOpenRoomState(catId, lastRoom, null, ts);
-        const event: ServerEvent = {
-          type: "silent",
-          catId,
-          lastRoom,
-          lastSeen: ts,
-        };
-        this.ws.broadcast(event);
+        this.ws.broadcast({ type: "silent", catId, lastRoom, lastSeen: ts } as ServerEvent);
       }
     }
 
-    // Phase 2: detect orphaned bindings — cats whose bound MAC has no active
-    // smoother (e.g. after server restart when the MAC rotated while offline)
+    // Phase 2: find cats whose bound MAC has no fresh readings (orphaned)
     const cats = this.store.listCats();
-    let hasOrphan = false;
+    const orphanedCats: Array<{ catId: number; oldMac: string }> = [];
     for (const cat of cats) {
-      const boundMac = this.store.findMacByCat(cat.id as number);
-      if (!boundMac) continue;
-      const hasActiveSmoother = [...this.smoothers.entries()].some(
-        ([key, s]) => key.startsWith(boundMac + "|") && s.isFresh(nowMs, this.cfg.silentSeconds)
+      const mac = this.store.findMacByCat(cat.id as number);
+      if (!mac) continue;
+      const hasFresh = [...this.smoothers.entries()].some(
+        ([key, s]) => key.startsWith(mac + "|") && s.isFresh(nowMs, ORPHAN_STALE_MS / 1000)
       );
-      if (!hasActiveSmoother) hasOrphan = true;
+      if (!hasFresh) orphanedCats.push({ catId: cat.id as number, oldMac: mac });
     }
 
-    // Collect unbound MACs that have recent readings
+    // Phase 3: collect unbound FEED MACs with fresh readings
     const unboundMacs: string[] = [];
     const seenMacs = new Set<string>();
     for (const key of this.smoothers.keys()) {
@@ -465,56 +458,49 @@ export class Orchestrator {
     }
 
     if (unboundMacs.length === 0) return;
-    if (gone.length === 0 && !hasOrphan) return;
+    if (gone.length === 0 && orphanedCats.length === 0) return;
 
-    // For orphaned bindings, directly rebind the unbound MAC to the orphaned cat
-    // (skip fingerprint matching — the old MAC has no readings to compare against)
-    if (hasOrphan && gone.length === 0) {
-      const orphanedCats = cats.filter(cat => {
-        const mac = this.store.findMacByCat(cat.id as number);
-        if (!mac) return false;
-        return ![...this.smoothers.entries()].some(
-          ([key, s]) => key.startsWith(mac + "|") && s.isFresh(nowMs, this.cfg.silentSeconds)
-        );
-      });
+    // Phase 4: rebind
+    // Simple 1:1 — one orphan, one newcomer → direct rebind (instant)
+    if (orphanedCats.length === 1 && unboundMacs.length === 1) {
+      const { catId } = orphanedCats[0]!;
+      const mac = unboundMacs[0]!;
+      console.log(`[sweep] rebind: cat ${catId} → ${mac}`);
+      this.store.bindMac(mac, catId, "auto", ts);
+      this.resolver.bind(mac, catId, "auto");
+      return;
+    }
 
-      // Simple case: 1 orphaned cat, 1 unbound MAC — direct rebind
-      if (orphanedCats.length === 1 && unboundMacs.length === 1) {
-        const catId = orphanedCats[0]!.id as number;
-        const mac = unboundMacs[0]!;
-        console.log(`[sweepAndRebind] orphan rebind: cat ${catId} → ${mac}`);
-        this.store.bindMac(mac, catId, "auto", ts);
-        this.resolver.bind(mac, catId, "auto");
-        return;
-      }
-      // Multiple orphans + multiple newcomers: can't distinguish without fingerprints
-      if (orphanedCats.length > 0 && unboundMacs.length > 0) {
-        console.log(`[sweepAndRebind] ambiguous: ${orphanedCats.length} orphans, ${unboundMacs.length} newcomers`);
-        const event: ServerEvent = {
-          type: "identityAmbiguous",
-          candidates: unboundMacs.map(mac => ({ mac, fingerprint: [] })),
-          at: ts,
-        };
-        this.ws.broadcast(event);
+    // 2:2 with fingerprints — both cats rotated, use RSSI matching
+    if (gone.length > 0 && unboundMacs.length > 0) {
+      const result = this.resolver.attemptRebind(unboundMacs, nowMs);
+      console.log(`[sweep] attemptRebind: ${result.kind}`);
+      if (result.kind === "autoRebound") {
+        for (const { mac, catId } of result.pairings) {
+          this.store.bindMac(mac, catId, "auto", ts);
+          this.resolver.bind(mac, catId, "auto");
+        }
         return;
       }
     }
 
-    // Normal fingerprint-based rebind for MACs that went through sweepSilent
-    const result = this.resolver.attemptRebind(unboundMacs, nowMs);
-    console.log(`[sweepAndRebind] attemptRebind result: ${result.kind}`, result.kind === "autoRebound" ? result.pairings : "");
-    if (result.kind === "autoRebound") {
-      for (const { mac, catId } of result.pairings) {
-        this.store.bindMac(mac, catId, "auto", ts);
-        this.resolver.bind(mac, catId, "auto");
+    // N:N ambiguous — multiple orphans + multiple newcomers, can't resolve
+    if (orphanedCats.length > 0 && unboundMacs.length > 0) {
+      // If both in same room (identical fingerprints), just assign sequentially
+      if (orphanedCats.length === unboundMacs.length) {
+        console.log(`[sweep] blind rebind: ${orphanedCats.length} orphans → ${unboundMacs.length} newcomers`);
+        for (let i = 0; i < orphanedCats.length; i++) {
+          this.store.bindMac(unboundMacs[i]!, orphanedCats[i]!.catId, "auto", ts);
+          this.resolver.bind(unboundMacs[i]!, orphanedCats[i]!.catId, "auto");
+        }
+        return;
       }
-    } else if (result.kind === "ambiguous") {
-      const event: ServerEvent = {
+      console.log(`[sweep] ambiguous: ${orphanedCats.length} orphans, ${unboundMacs.length} newcomers`);
+      this.ws.broadcast({
         type: "identityAmbiguous",
-        candidates: result.candidates,
+        candidates: unboundMacs.map(mac => ({ mac, fingerprint: [] })),
         at: ts,
-      };
-      this.ws.broadcast(event);
+      } as ServerEvent);
     }
   }
 
