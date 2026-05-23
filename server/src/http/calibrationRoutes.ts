@@ -7,8 +7,8 @@ export function registerCalibrationRoutes(app: FastifyInstance, controller: Cali
   app.post("/api/calibration/start", async (req, reply) => {
     const body = postCalibrationStartBodySchema.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: body.error.message });
-    controller.start(body.data.room);
-    return { status: "started", room: body.data.room };
+    controller.start(body.data.room, body.data.catId);
+    return { status: "started", room: body.data.room, filterCatId: body.data.catId ?? null };
   });
 
   app.post("/api/calibration/stop", async (_req, reply) => {

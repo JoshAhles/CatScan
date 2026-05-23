@@ -22,7 +22,7 @@ export const patchCatBodySchema = z.object({
 }).refine(o => Object.keys(o).length > 0, { message: "at least one field required" });
 export type PatchCatBody = z.infer<typeof patchCatBodySchema>;
 
-export const postCalibrationStartBodySchema = z.object({ room: roomName });
+export const postCalibrationStartBodySchema = z.object({ room: roomName, catId: z.number().int().positive().optional() });
 export type PostCalibrationStartBody = z.infer<typeof postCalibrationStartBodySchema>;
 
 export const postIdentityResolveBodySchema = z.object({ provisionalMac: mac, catId });

@@ -11,13 +11,17 @@ interface CalibrationControllerConfig {
 export class CalibrationController {
   private capture: CalibrationCapture | null = null;
   private activeRoom: string | null = null;
+  private filterCatId: number | null = null;
 
   constructor(private cfg: CalibrationControllerConfig) {}
 
-  start(room: string) {
+  start(room: string, catId?: number) {
     this.activeRoom = room;
+    this.filterCatId = catId ?? null;
     this.capture = new CalibrationCapture(this.cfg.nodeIds, this.cfg.sentinelDbm, this.cfg.minSamples);
   }
+
+  get activeCatFilter(): number | null { return this.filterCatId; }
 
   addReading(readings: Record<string, number>) {
     this.capture?.addReading(readings);

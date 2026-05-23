@@ -225,11 +225,27 @@ export class Orchestrator {
     return this.calibrationController;
   }
 
-  stopCalibration(): { room: string; samples: number; saved: boolean } | null {
+  stopCalibration(): { room: string; samples: number; saved: boolean; assignedNode?: string | undefined } | null {
     if (!this.calibrationController.isActive()) return null;
     const result = this.calibrationController.stop();
     if (!result) return null;
+    let assignedNode: string | undefined;
     if (result.centroid) {
+      // Auto-assign: the node with the strongest signal in the centroid is in this room
+      let bestIdx = 0;
+      let bestVal = -Infinity;
+      for (let i = 0; i < result.centroid.length; i++) {
+        if (result.centroid[i]! > bestVal) {
+          bestVal = result.centroid[i]!;
+          bestIdx = i;
+        }
+      }
+      if (bestIdx < this.nodeIds.length) {
+        assignedNode = this.nodeIds[bestIdx]!;
+        this.store.assignNodeRoom(assignedNode, result.room);
+        console.log(`[calibration] auto-assigned ${assignedNode} → ${result.room} (strongest at ${bestVal.toFixed(0)} dBm)`);
+      }
+
       const savedEvent: ServerEvent = {
         type: "centroidSaved",
         room: result.room as string & { length: number },
@@ -247,7 +263,7 @@ export class Orchestrator {
         staleSentinelDbm: this.cfg.staleSentinelDbm,
       });
     }
-    return { room: result.room, samples: result.samples, saved: result.centroid !== null };
+    return { room: result.room, samples: result.samples, saved: result.centroid !== null, assignedNode };
   }
 
 
@@ -310,9 +326,16 @@ export class Orchestrator {
       this.resolver.bind(mac, pairResult.catId, "auto");
     }
 
-    // Calibration — feed reading if active, broadcast progress (no auto-stop)
+    // Calibration — feed reading if active, filtered by cat if specified
     if (this.calibrationController.isActive()) {
-      this.calibrationController.addReading(smoothedReadings);
+      const filterCat = this.calibrationController.activeCatFilter;
+      if (filterCat !== null) {
+        const catForMac = this.store.findCatByMac(mac);
+        if (catForMac !== filterCat) { /* skip — wrong cat's Tile */ }
+        else this.calibrationController.addReading(smoothedReadings);
+      } else {
+        this.calibrationController.addReading(smoothedReadings);
+      }
       const progress = this.calibrationController.progress();
       if (progress) {
         const calibEvent: ServerEvent = {
