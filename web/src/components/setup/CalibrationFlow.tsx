@@ -44,25 +44,33 @@ export function CalibrationFlow() {
               <span style={{ flex: 1, color: isCalibrated ? "#1ee0c9" : "#d2dfeb", fontSize: "0.8rem" }}>
                 {room.name}
               </span>
-              {isCalibrated && !isCapturing && (
-                <span style={{ color: "#1ee0c9", fontSize: "0.7rem" }}>CALIBRATED</span>
-              )}
               {isCapturing && (
                 <span style={{ color: "#ffcc4d", fontSize: "0.7rem" }}>
                   {progress.samples}/{progress.target} samples…
                 </span>
               )}
-              {!isCalibrated && !isCapturing && (
-                <button
-                  onClick={() => startCalibration(room.name)}
-                  style={{
-                    padding: "0.25rem 0.75rem", background: "#1ee0c9", color: "#0c1422",
-                    border: "none", borderRadius: 3, cursor: "pointer", minHeight: 44,
-                    fontFamily: "ui-monospace, monospace", fontSize: "0.7rem", letterSpacing: "0.08em",
-                  }}
-                >
-                  I'm in {room.name}
-                </button>
+              {!isCapturing && (
+                <>
+                  {isCalibrated && (
+                    <span style={{ color: "#1ee0c9", fontSize: "0.7rem", marginRight: "0.25rem" }}>CALIBRATED</span>
+                  )}
+                  <button
+                    onClick={async () => {
+                      if (isCalibrated) {
+                        await api(`/api/calibration/${encodeURIComponent(room.name)}`, { method: "DELETE" });
+                      }
+                      startCalibration(room.name);
+                    }}
+                    style={{
+                      padding: "0.25rem 0.75rem", background: isCalibrated ? "#2a3d52" : "#1ee0c9",
+                      color: isCalibrated ? "#d2dfeb" : "#0c1422",
+                      border: "none", borderRadius: 3, cursor: "pointer", minHeight: 44,
+                      fontFamily: "ui-monospace, monospace", fontSize: "0.7rem", letterSpacing: "0.08em",
+                    }}
+                  >
+                    {isCalibrated ? "Recalibrate" : `I'm in ${room.name}`}
+                  </button>
+                </>
               )}
             </div>
           );
