@@ -1,98 +1,44 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../../api/client";
-import { PhotoCropper } from "./PhotoCropper";
+import { useWsStore } from "../../stores/wsStore";
 
-interface CatPairingProps {
-  onComplete?: () => void;
-}
+export function CatPairing() {
+  const cats = useWsStore((s) => s.cats);
+  const [pairingCatId, setPairingCatId] = useState<number | null>(null);
+  const [countdown, setCountdown] = useState(0);
+  const [result, setResult] = useState<string | null>(null);
 
-export function CatPairing({ onComplete }: CatPairingProps) {
-  const [step, setStep] = useState<"form" | "cropping" | "pairing" | "done">("form");
-  const [name, setName] = useState("");
-  const [color, setColor] = useState("#ffcc4d");
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pairingCountdown, setPairingCountdown] = useState(60);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  async function handleSubmit() {
-    if (!name.trim()) { setError("Name is required"); return; }
-    setError(null);
-    try {
-      const cat = await api<{ id: number }>("/api/cats", {
-        method: "POST",
-        body: JSON.stringify({ name: name.trim(), color }),
-      });
-      if (photoBlob) {
-        const form = new FormData();
-        form.append("photo", photoBlob, "photo.png");
-        await fetch(`/api/cats/${cat.id}/photo`, { method: "POST", body: form });
-      }
-      await api(`/api/cats/${cat.id}/pair`, { method: "POST" });
-      setPairingCountdown(60);
-      setStep("pairing");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed");
-    }
-  }
-
-  // Drive the pairing countdown from an effect so the interval is cleaned up
-  // when the user navigates away mid-countdown (or the component unmounts).
   useEffect(() => {
-    if (step !== "pairing") return;
+    if (pairingCatId === null) return;
     const id = window.setInterval(() => {
-      setPairingCountdown((s) => {
+      setCountdown((s) => {
         if (s <= 1) {
           window.clearInterval(id);
-          setStep("done");
-          onComplete?.();
+          setPairingCatId(null);
+          setResult("Pairing window closed. Check the Live view to see if it worked.");
           return 0;
         }
         return s - 1;
       });
     }, 1000);
     return () => window.clearInterval(id);
-  }, [step, onComplete]);
+  }, [pairingCatId]);
 
-  if (step === "cropping" && photoFile) {
-    return (
-      <div>
-        <h3 style={{ color: "#1ee0c9", fontFamily: "ui-monospace, monospace", fontSize: "0.8rem", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-          Crop Photo
-        </h3>
-        <PhotoCropper
-          file={photoFile}
-          onAccept={(blob) => { setPhotoBlob(blob); setStep("form"); }}
-        />
-      </div>
-    );
+  async function startPairing(catId: number) {
+    setResult(null);
+    try {
+      await api(`/api/cats/${catId}/pair`, { method: "POST" });
+      setPairingCatId(catId);
+      setCountdown(60);
+    } catch (e) {
+      setResult(e instanceof Error ? e.message : "Failed to start pairing");
+    }
   }
 
-  if (step === "pairing") {
+  if (cats.length === 0) {
     return (
-      <div style={{ fontFamily: "ui-monospace, monospace" }}>
-        <div style={{
-          background: "#2a1a10", border: "1px solid #ff8c4d", borderRadius: 6,
-          padding: "1rem", marginBottom: "1rem", color: "#ffcc4d", fontSize: "0.8rem",
-          lineHeight: 1.6,
-        }}>
-          Hold the Tile Sticker close to any ESP32 node for the next minute so CatScan can detect and pair it.
-        </div>
-        <div style={{ color: "#1ee0c9", fontSize: "1.5rem", textAlign: "center" }}>
-          {pairingCountdown}s
-        </div>
-        <p style={{ color: "#7e93a8", fontSize: "0.75rem", textAlign: "center", marginTop: "0.5rem" }}>
-          Hold the Tile near any ESP32 node…
-        </p>
-      </div>
-    );
-  }
-
-  if (step === "done") {
-    return (
-      <p style={{ color: "#1ee0c9", fontFamily: "ui-monospace, monospace", fontSize: "0.8rem" }}>
-        Cat paired successfully.
+      <p style={{ fontFamily: "ui-monospace, monospace", color: "#7e93a8", fontSize: "0.8rem" }}>
+        No cats registered yet. Add them via the API or database.
       </p>
     );
   }
@@ -100,48 +46,56 @@ export function CatPairing({ onComplete }: CatPairingProps) {
   return (
     <div style={{ fontFamily: "ui-monospace, monospace", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
       <h3 style={{ color: "#1ee0c9", fontSize: "0.8rem", letterSpacing: "0.1em", textTransform: "uppercase", margin: 0 }}>
-        Add Cat
+        Pair Tiles to Cats
       </h3>
-      {error && <p style={{ color: "#ff4d6a", fontSize: "0.75rem" }}>{error}</p>}
-      <label style={{ color: "#7e93a8", fontSize: "0.72rem" }}>
-        Name
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={{ display: "block", background: "#152334", border: "1px solid #2a3d52", color: "#d2dfeb", padding: "0.375rem 0.5rem", borderRadius: 3, fontFamily: "ui-monospace, monospace", fontSize: "0.8rem", width: "100%", minHeight: 44, marginTop: "0.25rem" }}
-        />
-      </label>
-      <label style={{ color: "#7e93a8", fontSize: "0.72rem" }}>
-        Color
-        <input
-          type="color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          style={{ display: "block", width: 44, height: 44, padding: 2, background: "transparent", border: "1px solid #2a3d52", borderRadius: 3, cursor: "pointer", marginTop: "0.25rem" }}
-        />
-      </label>
-      <label style={{ color: "#7e93a8", fontSize: "0.72rem" }}>
-        Photo (optional)
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          style={{ display: "block", marginTop: "0.25rem", color: "#d2dfeb", fontSize: "0.72rem" }}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) { setPhotoFile(f); setStep("cropping"); }
-          }}
-        />
-      </label>
-      {photoBlob && (
-        <p style={{ color: "#1ee0c9", fontSize: "0.72rem" }}>Photo ready.</p>
+
+      {result && <p style={{ color: "#ffcc4d", fontSize: "0.75rem" }}>{result}</p>}
+
+      {pairingCatId !== null && (
+        <div style={{
+          background: "#2a1a10", border: "1px solid #ff8c4d", borderRadius: 6,
+          padding: "1rem", color: "#ffcc4d", fontSize: "0.8rem", lineHeight: 1.6,
+        }}>
+          Hold the Tile Sticker close to any ESP32 node for the next minute so CatScan can detect and pair it.
+          <div style={{ color: "#1ee0c9", fontSize: "1.5rem", textAlign: "center", marginTop: "0.5rem" }}>
+            {countdown}s
+          </div>
+        </div>
       )}
-      <button
-        onClick={handleSubmit}
-        style={{ padding: "0.5rem 1rem", background: "#1ee0c9", color: "#0c1422", border: "none", borderRadius: 4, cursor: "pointer", fontFamily: "ui-monospace, monospace", fontSize: "0.75rem", letterSpacing: "0.1em", textTransform: "uppercase", minHeight: 44 }}
-      >
-        Pair Tile
-      </button>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        {cats.map((cat) => (
+          <div
+            key={cat.id}
+            style={{
+              display: "flex", alignItems: "center", gap: "0.75rem",
+              padding: "0.5rem 0.75rem", background: "#152334", border: "1px solid #2a3d52", borderRadius: 4,
+            }}
+          >
+            <span
+              style={{
+                width: 12, height: 12, borderRadius: "50%",
+                background: cat.color, flexShrink: 0,
+              }}
+            />
+            <span style={{ flex: 1, color: "#d2dfeb", fontSize: "0.8rem" }}>
+              {cat.name}
+            </span>
+            <button
+              disabled={pairingCatId !== null}
+              onClick={() => startPairing(cat.id)}
+              style={{
+                padding: "0.25rem 0.75rem", background: pairingCatId === cat.id ? "#ffcc4d" : "#1ee0c9",
+                color: "#0c1422", border: "none", borderRadius: 3, cursor: pairingCatId !== null ? "default" : "pointer",
+                minHeight: 44, fontFamily: "ui-monospace, monospace", fontSize: "0.7rem",
+                letterSpacing: "0.08em", opacity: pairingCatId !== null && pairingCatId !== cat.id ? 0.4 : 1,
+              }}
+            >
+              {pairingCatId === cat.id ? `Pairing… ${countdown}s` : "Pair Tile"}
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -26,10 +26,17 @@ export interface TransitionRecord {
   at: number;
 }
 
+export interface CalibrationProgress {
+  room: string;
+  samples: number;
+  target: number;
+}
+
 export interface WsState {
   cats: CatState[];
   nodes: NodeState[];
   calibration: CalibrationMap;
+  calibrationProgress: CalibrationProgress | null;
   events: ActivityEntry[];
   transitions: TransitionRecord[];
   /** Which cat's detail panel is open; null = closed. */
@@ -196,6 +203,10 @@ function buildApplyEvent(
           message: `CALIBRATED · ${ev.room.toUpperCase()} (${ev.sampleCount} samples)`,
           tone: "accent",
         });
+        set((s) => ({
+          calibrationProgress: null,
+          calibration: { ...s.calibration, [ev.room]: "calibrated" },
+        }));
         break;
       case "identityAmbiguous":
         logActivity({
@@ -214,7 +225,7 @@ function buildApplyEvent(
         });
         break;
       case "calibrationProgress":
-        // High-frequency — don't log
+        set({ calibrationProgress: { room: ev.room, samples: ev.samples, target: ev.target } });
         break;
     }
   };
@@ -225,6 +236,7 @@ export function createWsStore() {
     cats: [],
     nodes: [],
     calibration: {},
+    calibrationProgress: null,
     events: [],
     transitions: [],
     selectedCatId: null,
