@@ -373,12 +373,17 @@ export function FloorPlan({ cats, heatLayer, compact = false, onCatSelect }: Flo
       {/* Cat markers (top of stack) */}
       {cats.map((cat) => {
         const [x, y] = catPositions.get(cat.id) ?? [400, 300];
+        const room = roomForCat(cat);
+        const roommates = room
+          ? cats.filter((c) => !c.silent && roomForCat(c)?.name === room.name).length
+          : 1;
         return (
           <CatMarker
             key={cat.id}
             cat={cat}
             x={x}
             y={y}
+            solo={roommates <= 1}
             {...(onCatSelect ? { onSelect: onCatSelect } : {})}
           />
         );

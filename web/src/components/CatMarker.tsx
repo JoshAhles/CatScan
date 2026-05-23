@@ -5,14 +5,16 @@ interface CatMarkerProps {
   cat: CatState;
   x: number;
   y: number;
+  solo?: boolean;
   onSelect?: (catId: number) => void;
 }
 
-export function CatMarker({ cat, x, y, onSelect }: CatMarkerProps) {
+export function CatMarker({ cat, x, y, solo = false, onSelect }: CatMarkerProps) {
   const monogram = cat.name.slice(0, 1).toUpperCase();
   const silent = cat.silent;
   const innerOpacity = silent ? 0.35 : 1;
   const clipId = `cs-cat-clip-${cat.id}`;
+  const r = solo ? 32 : 22;
 
   return (
     <motion.g
@@ -42,12 +44,12 @@ export function CatMarker({ cat, x, y, onSelect }: CatMarkerProps) {
       <title>{cat.name}</title>
 
       {/* Two out-of-phase radar rings */}
-      <circle r="36" fill="none" stroke={cat.color} strokeWidth="1.2" opacity="0.25">
-        <animate attributeName="r" values="22;50" dur={silent ? "5s" : "2.2s"} repeatCount="indefinite" />
+      <circle r={r + 14} fill="none" stroke={cat.color} strokeWidth="1.2" opacity="0.25">
+        <animate attributeName="r" values={`${r};${r + 28}`} dur={silent ? "5s" : "2.2s"} repeatCount="indefinite" />
         <animate attributeName="opacity" values="0.55;0" dur={silent ? "5s" : "2.2s"} repeatCount="indefinite" />
       </circle>
-      <circle r="30" fill="none" stroke={cat.color} strokeWidth="1" opacity="0.35">
-        <animate attributeName="r" values="22;42" dur={silent ? "5s" : "2.2s"} begin="0.7s" repeatCount="indefinite" />
+      <circle r={r + 8} fill="none" stroke={cat.color} strokeWidth="1" opacity="0.35">
+        <animate attributeName="r" values={`${r};${r + 20}`} dur={silent ? "5s" : "2.2s"} begin="0.7s" repeatCount="indefinite" />
         <animate attributeName="opacity" values="0.45;0" dur={silent ? "5s" : "2.2s"} begin="0.7s" repeatCount="indefinite" />
       </circle>
 
@@ -55,17 +57,16 @@ export function CatMarker({ cat, x, y, onSelect }: CatMarkerProps) {
         <>
           <defs>
             <clipPath id={clipId}>
-              <circle r="22" />
+              <circle r={r} />
             </clipPath>
           </defs>
-          {/* Tinted base so the colored aura still reads while the photo loads */}
-          <circle r="22" fill={cat.color} opacity={innerOpacity * 0.95} />
+          <circle r={r} fill={cat.color} opacity={innerOpacity * 0.95} />
           <image
             href={cat.photoPath}
-            x={-22}
-            y={-22}
-            width={44}
-            height={44}
+            x={-r}
+            y={-r}
+            width={r * 2}
+            height={r * 2}
             clipPath={`url(#${clipId})`}
             preserveAspectRatio="xMidYMid slice"
             opacity={innerOpacity}
@@ -73,11 +74,11 @@ export function CatMarker({ cat, x, y, onSelect }: CatMarkerProps) {
         </>
       ) : (
         <>
-          <circle r="22" fill={cat.color} opacity={innerOpacity * 0.95} />
+          <circle r={r} fill={cat.color} opacity={innerOpacity * 0.95} />
           <text
             textAnchor="middle"
-            dy="6.5"
-            fontSize="20"
+            dy={r * 0.3}
+            fontSize={r * 0.9}
             fontWeight="700"
             fontFamily="ui-monospace, Menlo, monospace"
             fill="#0c1422"
@@ -91,8 +92,8 @@ export function CatMarker({ cat, x, y, onSelect }: CatMarkerProps) {
       {/* Name label below */}
       <text
         textAnchor="middle"
-        dy="40"
-        fontSize="9"
+        dy={r + 18}
+        fontSize={solo ? "11" : "9"}
         fill={cat.color}
         fontFamily="ui-monospace, Menlo, monospace"
         letterSpacing="0.18em"
