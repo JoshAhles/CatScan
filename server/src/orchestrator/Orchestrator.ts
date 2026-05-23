@@ -69,7 +69,7 @@ export class Orchestrator {
       nodeStaleSeconds: options.nodeStaleSeconds ?? 30,
       staleSentinelDbm: options.staleSentinelDbm ?? -100,
       rotationConfidenceRatio: options.rotationConfidenceRatio ?? 0.5,
-      minCalibrationSamples: options.minCalibrationSamples ?? 120,
+      minCalibrationSamples: options.minCalibrationSamples ?? 10,
       pairingWindowMs: options.pairingWindowMs ?? 60_000,
       pairingMinRssi: options.pairingMinRssi ?? -50,
       rssiBroadcastIntervalMs: options.rssiBroadcastIntervalMs ?? 2_000,
@@ -233,6 +233,31 @@ export class Orchestrator {
     return this.calibrationController;
   }
 
+  stopCalibration(): { room: string; samples: number; saved: boolean } | null {
+    if (!this.calibrationController.isActive()) return null;
+    const result = this.calibrationController.stop();
+    if (!result) return null;
+    if (result.centroid) {
+      const savedEvent: ServerEvent = {
+        type: "centroidSaved",
+        room: result.room as string & { length: number },
+        sampleCount: result.samples,
+        at: this.cfg.nowSec(),
+      };
+      this.ws.broadcast(savedEvent);
+      const centroids = this.store.loadCentroids();
+      this.decider = new RoomDecider({
+        nodeIds: this.nodeIds,
+        centroids,
+        hysteresisDbm: this.cfg.hysteresisDbm,
+        hysteresisTicks: this.cfg.hysteresisTicks,
+        silentSeconds: this.cfg.silentSeconds,
+        staleSentinelDbm: this.cfg.staleSentinelDbm,
+      });
+    }
+    return { room: result.room, samples: result.samples, saved: result.centroid !== null };
+  }
+
   getPairingController(): PairingWindowController {
     return this.pairingController;
   }
@@ -292,7 +317,7 @@ export class Orchestrator {
       this.resolver.bind(mac, pairResult.catId, "auto");
     }
 
-    // Calibration — feed reading if active
+    // Calibration — feed reading if active, broadcast progress (no auto-stop)
     if (this.calibrationController.isActive()) {
       this.calibrationController.addReading(smoothedReadings);
       const progress = this.calibrationController.progress();
@@ -304,28 +329,6 @@ export class Orchestrator {
           target: progress.target,
         };
         this.ws.broadcast(calibEvent);
-        if (progress.samples >= progress.target) {
-          const stopResult = this.calibrationController.stop();
-          if (stopResult?.centroid) {
-            const savedEvent: ServerEvent = {
-              type: "centroidSaved",
-              room: stopResult.room as string & { length: number },
-              sampleCount: stopResult.samples,
-              at: this.cfg.nowSec(),
-            };
-            this.ws.broadcast(savedEvent);
-            // Reload centroids into decider
-            const centroids = this.store.loadCentroids();
-            this.decider = new RoomDecider({
-              nodeIds: this.nodeIds,
-              centroids,
-              hysteresisDbm: this.cfg.hysteresisDbm,
-              hysteresisTicks: this.cfg.hysteresisTicks,
-              silentSeconds: this.cfg.silentSeconds,
-              staleSentinelDbm: this.cfg.staleSentinelDbm,
-            });
-          }
-        }
       }
     }
 

@@ -9,11 +9,33 @@ export function CalibrationFlow() {
 
   async function startCalibration(roomName: string) {
     try {
+      if (calibration[roomName] === "calibrated") {
+        await api(`/api/calibration/${encodeURIComponent(roomName)}`, { method: "DELETE" });
+      }
+    } catch { /* proceed anyway */ }
+    try {
       await api("/api/calibration/start", { method: "POST", body: JSON.stringify({ room: roomName }) });
-    } catch {
-      // ignore — server will broadcast progress if it starts
-    }
+    } catch { /* server will broadcast progress if it starts */ }
   }
+
+  async function stopCalibration() {
+    try {
+      await api("/api/calibration/stop", { method: "POST" });
+    } catch { /* ignore */ }
+  }
+
+  const btnStyle = {
+    padding: "0.5rem 1rem",
+    border: "none",
+    borderRadius: 3,
+    cursor: "pointer",
+    minHeight: 48,
+    fontFamily: "ui-monospace, monospace",
+    fontSize: "0.8rem",
+    letterSpacing: "0.08em",
+    WebkitTapHighlightColor: "transparent",
+    touchAction: "manipulation" as const,
+  };
 
   return (
     <div style={{ fontFamily: "ui-monospace, monospace" }}>
@@ -22,7 +44,7 @@ export function CalibrationFlow() {
         padding: "0.875rem 1rem", marginBottom: "1rem", color: "#80c070", fontSize: "0.8rem",
         lineHeight: 1.6,
       }}>
-        Take one Tile Sticker to each room. Press the button, wait for samples to fill, then move to the next room.
+        Take one Tile Sticker to each room. Press Start, walk around the room slowly, then press Stop when done.
       </div>
 
       <h3 style={{ color: "#1ee0c9", fontSize: "0.8rem", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "0.75rem" }}>
@@ -33,6 +55,7 @@ export function CalibrationFlow() {
         {rooms.map((room) => {
           const isCalibrated = calibration[room.name] === "calibrated";
           const isCapturing = progress?.room === room.name;
+          const anotherCapturing = progress !== null && progress.room !== room.name;
           return (
             <div
               key={room.name}
@@ -45,9 +68,17 @@ export function CalibrationFlow() {
                 {room.name}
               </span>
               {isCapturing && (
-                <span style={{ color: "#ffcc4d", fontSize: "0.7rem" }}>
-                  {progress.samples}/{progress.target} samples…
-                </span>
+                <>
+                  <span style={{ color: "#ffcc4d", fontSize: "0.75rem" }}>
+                    {progress.samples} samples
+                  </span>
+                  <button
+                    onClick={stopCalibration}
+                    style={{ ...btnStyle, background: "#ff8c4d", color: "#0c1422" }}
+                  >
+                    Stop & Save
+                  </button>
+                </>
               )}
               {!isCapturing && (
                 <>
@@ -55,23 +86,16 @@ export function CalibrationFlow() {
                     <span style={{ color: "#1ee0c9", fontSize: "0.7rem", marginRight: "0.25rem" }}>CALIBRATED</span>
                   )}
                   <button
-                    onClick={async () => {
-                      try {
-                        if (isCalibrated) {
-                          await api(`/api/calibration/${encodeURIComponent(room.name)}`, { method: "DELETE" });
-                        }
-                      } catch { /* proceed anyway */ }
-                      startCalibration(room.name);
-                    }}
+                    disabled={anotherCapturing}
+                    onClick={() => startCalibration(room.name)}
                     style={{
-                      padding: "0.5rem 1rem", background: isCalibrated ? "#2a3d52" : "#1ee0c9",
-                      color: isCalibrated ? "#d2dfeb" : "#0c1422",
-                      border: "none", borderRadius: 3, cursor: "pointer", minHeight: 48,
-                      fontFamily: "ui-monospace, monospace", fontSize: "0.8rem", letterSpacing: "0.08em",
-                      WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
+                      ...btnStyle,
+                      background: anotherCapturing ? "#1a2533" : isCalibrated ? "#2a3d52" : "#1ee0c9",
+                      color: anotherCapturing ? "#4a5568" : isCalibrated ? "#d2dfeb" : "#0c1422",
+                      cursor: anotherCapturing ? "default" : "pointer",
                     }}
                   >
-                    {isCalibrated ? "Recalibrate" : `I'm in ${room.name}`}
+                    {isCalibrated ? "Recalibrate" : "Start"}
                   </button>
                 </>
               )}

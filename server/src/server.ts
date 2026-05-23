@@ -62,7 +62,7 @@ await orchestrator.start();
 ws.attach(app);
 registerNodes(app, store);
 registerCats(app, store);
-registerCalibrationRoutes(app, orchestrator.getCalibrationController());
+registerCalibrationRoutes(app, orchestrator.getCalibrationController(), orchestrator);
 registerHistory(app, store);
 registerPair(app, store, orchestrator.getPairingController());
 registerIdentity(app, store);
