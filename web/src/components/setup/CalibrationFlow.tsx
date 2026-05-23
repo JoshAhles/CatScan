@@ -56,16 +56,19 @@ export function CalibrationFlow() {
                   )}
                   <button
                     onClick={async () => {
-                      if (isCalibrated) {
-                        await api(`/api/calibration/${encodeURIComponent(room.name)}`, { method: "DELETE" });
-                      }
+                      try {
+                        if (isCalibrated) {
+                          await api(`/api/calibration/${encodeURIComponent(room.name)}`, { method: "DELETE" });
+                        }
+                      } catch { /* proceed anyway */ }
                       startCalibration(room.name);
                     }}
                     style={{
-                      padding: "0.25rem 0.75rem", background: isCalibrated ? "#2a3d52" : "#1ee0c9",
+                      padding: "0.5rem 1rem", background: isCalibrated ? "#2a3d52" : "#1ee0c9",
                       color: isCalibrated ? "#d2dfeb" : "#0c1422",
-                      border: "none", borderRadius: 3, cursor: "pointer", minHeight: 44,
-                      fontFamily: "ui-monospace, monospace", fontSize: "0.7rem", letterSpacing: "0.08em",
+                      border: "none", borderRadius: 3, cursor: "pointer", minHeight: 48,
+                      fontFamily: "ui-monospace, monospace", fontSize: "0.8rem", letterSpacing: "0.08em",
+                      WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
                     }}
                   >
                     {isCalibrated ? "Recalibrate" : `I'm in ${room.name}`}

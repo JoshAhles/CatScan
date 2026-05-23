@@ -85,10 +85,11 @@ export function CatPairing() {
               disabled={pairingCatId !== null}
               onClick={() => startPairing(cat.id)}
               style={{
-                padding: "0.25rem 0.75rem", background: pairingCatId === cat.id ? "#ffcc4d" : "#1ee0c9",
+                padding: "0.5rem 1rem", background: pairingCatId === cat.id ? "#ffcc4d" : "#1ee0c9",
                 color: "#0c1422", border: "none", borderRadius: 3, cursor: pairingCatId !== null ? "default" : "pointer",
-                minHeight: 44, fontFamily: "ui-monospace, monospace", fontSize: "0.7rem",
+                minHeight: 48, fontFamily: "ui-monospace, monospace", fontSize: "0.8rem",
                 letterSpacing: "0.08em", opacity: pairingCatId !== null && pairingCatId !== cat.id ? 0.4 : 1,
+                WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
               }}
             >
               {pairingCatId === cat.id ? `Pairing… ${countdown}s` : "Pair Tile"}

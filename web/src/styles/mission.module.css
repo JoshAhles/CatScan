@@ -646,8 +646,8 @@
 }
 
 .tab {
-  padding: 0.6rem 1.25rem;
-  font-size: 0.7rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.75rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-dim);
@@ -656,7 +656,9 @@
   border-bottom: 2px solid transparent;
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s;
-  min-height: 44px;
+  min-height: 48px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .tab:hover {
