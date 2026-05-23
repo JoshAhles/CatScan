@@ -813,6 +813,10 @@
   /* Emoji renders at its own glyph metrics — no need for tinting/transform */
 }
 
+.mobileCatStrip {
+  display: none;
+}
+
 /* Floor plan — fluid, fills available grid cell */
 .floorPlanSvg {
   width: auto;
@@ -1330,10 +1334,8 @@
 
 @media (max-width: 768px) {
   .headerBlock {
-    padding: 0.5rem 0.75rem;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    overflow: hidden;
+    padding: 0.4rem 0.75rem;
+    gap: 0.4rem;
   }
 
   .logoBigCap {
@@ -1345,11 +1347,15 @@
   }
 
   .headerStats {
-    gap: 0.5rem;
+    gap: 0.4rem;
+  }
+
+  .headerStat:nth-child(2) {
+    display: none;
   }
 
   .headerStatValue {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
   }
 
   .headerStatLabel {
@@ -1363,7 +1369,9 @@
 
   .layout {
     grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
     grid-template-areas:
+      "catStrip"
       "floorPlan"
       "log";
   }
@@ -1372,9 +1380,51 @@
     display: none;
   }
 
+  .mobileCatStrip {
+    grid-area: catStrip;
+    display: flex;
+    overflow-x: auto;
+    gap: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mobileCatStrip .catCard {
+    flex-direction: row;
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+    text-align: left;
+    min-width: 0;
+    flex: 1;
+    border-bottom: none;
+    border-right: 1px solid var(--border);
+  }
+
+  .mobileCatStrip .catCard:last-child {
+    border-right: none;
+  }
+
+  .mobileCatStrip .catCardAvatar,
+  .mobileCatStrip .catCardAvatarFallback {
+    width: 40px;
+    height: 40px;
+  }
+
+  .mobileCatStrip .catCardLocation {
+    align-items: flex-start;
+  }
+
+  .mobileCatStrip .catRoom {
+    font-size: 0.7rem;
+  }
+
+  .mobileCatStrip .catCardMeta {
+    font-size: 0.6rem;
+  }
+
   .floorPlanArea {
     padding: 0.25rem;
-    overflow: auto;
+    overflow: hidden;
   }
 
   .floorPlanSvg {
@@ -1383,12 +1433,12 @@
   }
 
   .activityLog {
-    max-height: 140px;
+    max-height: 120px;
   }
 
-  .drawerToggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .activityItem {
+    grid-template-columns: 56px 14px 1fr;
+    gap: 6px;
+    font-size: 0.65rem;
   }
 }

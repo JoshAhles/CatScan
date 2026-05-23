@@ -52,6 +52,23 @@ function TrackingPanel({ drawerOpen, isMobile, onCatSelect }: TrackingPanelProps
   );
 }
 
+function MobileCatStrip({ onCatSelect }: { onCatSelect: (catId: number) => void }) {
+  const cats = useWsStore((s) => s.cats);
+  const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
+  useEffect(() => {
+    const id = window.setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  if (cats.length === 0) return null;
+  return (
+    <div className={styles.mobileCatStrip}>
+      {cats.map((cat) => (
+        <CatCard key={cat.id} cat={cat} nowSec={nowSec} onSelect={onCatSelect} />
+      ))}
+    </div>
+  );
+}
+
 export function LiveView() {
   const cats = useWsStore((s) => s.cats);
   const selectedCatId = useWsStore((s) => s.selectedCatId);
@@ -65,27 +82,20 @@ export function LiveView() {
   return (
     <>
       <div className={styles.layout} data-testid="live-view">
-        <TrackingPanel
-          drawerOpen={drawerOpen}
-          isMobile={isMobile}
-          onCatSelect={setSelectedCatId}
-        />
+        {!isMobile && (
+          <TrackingPanel
+            drawerOpen={drawerOpen}
+            isMobile={false}
+            onCatSelect={setSelectedCatId}
+          />
+        )}
+        {isMobile && <MobileCatStrip onCatSelect={setSelectedCatId} />}
         <main className={styles.floorPlanArea}>
           <FloorPlan cats={cats} onCatSelect={setSelectedCatId} />
         </main>
         {!isMidWidth && <Telemetry />}
         <ActivityLog />
       </div>
-      {isMobile && (
-        <button
-          className={styles.drawerToggle}
-          data-testid="drawer-toggle"
-          aria-label="Toggle tracking panel"
-          onClick={() => setDrawerOpen((o) => !o)}
-        >
-          {drawerOpen ? "✕" : "☰"}
-        </button>
-      )}
       {selectedCat && (
         <CatDetailPanel cat={selectedCat} onClose={() => setSelectedCatId(null)} />
       )}
