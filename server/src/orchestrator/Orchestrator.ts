@@ -72,7 +72,7 @@ export class Orchestrator {
       minCalibrationSamples: options.minCalibrationSamples ?? 10,
       pairingWindowMs: options.pairingWindowMs ?? 60_000,
       pairingMinRssi: options.pairingMinRssi ?? -50,
-      rssiBroadcastIntervalMs: options.rssiBroadcastIntervalMs ?? 2_000,
+      rssiBroadcastIntervalMs: options.rssiBroadcastIntervalMs ?? 1_000,
       nowSec: options.nowSec ?? (() => Math.floor(Date.now() / 1000)),
     };
 
