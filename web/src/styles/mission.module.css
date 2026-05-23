@@ -1330,8 +1330,10 @@
 
 @media (max-width: 768px) {
   .headerBlock {
-    padding: 0.55rem 0.75rem;
-    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    overflow: hidden;
   }
 
   .logoBigCap {
@@ -1343,16 +1345,20 @@
   }
 
   .headerStats {
-    gap: 0.6rem;
+    gap: 0.5rem;
   }
 
   .headerStatValue {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  .headerStatLabel {
+    font-size: 0.5rem;
   }
 
   .statusPill {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.65rem;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.6rem;
   }
 
   .layout {
@@ -1367,7 +1373,13 @@
   }
 
   .floorPlanArea {
-    padding: 0.5rem;
+    padding: 0.25rem;
+    overflow: auto;
+  }
+
+  .floorPlanSvg {
+    width: 100%;
+    height: auto;
   }
 
   .activityLog {

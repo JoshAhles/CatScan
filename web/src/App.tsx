@@ -29,9 +29,7 @@ export default function App() {
   // on every RSSI tick that mutates `nodes`. (Previously this subscribed to
   // the whole `nodes` array and cascaded re-renders through the tree.)
   const onlineCount = useWsStore((s) => s.nodes.filter((n) => n.status === "online").length);
-  const totalNodes = useWsStore((s) =>
-    Math.max(floorPlanConfig.nodes.length, s.nodes.length),
-  );
+  const totalNodes = useWsStore((s) => s.nodes.length);
 
   // Live mode: single shared WS keeps the store fresh across tabs.
   // Demo mode: skip WS entirely; a synthetic event loop drives the store.
