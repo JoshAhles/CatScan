@@ -375,11 +375,10 @@ export class Orchestrator {
 
   sweepAndRebind() {
     const nowMs = this.cfg.nowSec() * 1000;
-    const gone = this.decider.sweepSilent(nowMs);
-    if (gone.length === 0) return;
-
     const ts = this.cfg.nowSec();
 
+    // Phase 1: detect MACs that the decider was tracking but stopped advertising
+    const gone = this.decider.sweepSilent(nowMs);
     for (const { mac, lastRoom } of gone) {
       const catId = this.store.findCatByMac(mac);
       this.resolver.markSilent(mac, nowMs);
@@ -394,6 +393,19 @@ export class Orchestrator {
         };
         this.ws.broadcast(event);
       }
+    }
+
+    // Phase 2: detect orphaned bindings — cats whose bound MAC has no active
+    // smoother (e.g. after server restart when the MAC rotated while offline)
+    const cats = this.store.listCats();
+    let hasOrphan = false;
+    for (const cat of cats) {
+      const boundMac = this.store.findMacByCat(cat.id as number);
+      if (!boundMac) continue;
+      const hasActiveSmoother = [...this.smoothers.entries()].some(
+        ([key, s]) => key.startsWith(boundMac + "|") && s.isFresh(nowMs, this.cfg.silentSeconds)
+      );
+      if (!hasActiveSmoother) hasOrphan = true;
     }
 
     // Collect unbound MACs that have recent readings
@@ -412,7 +424,40 @@ export class Orchestrator {
     }
 
     if (unboundMacs.length === 0) return;
+    if (gone.length === 0 && !hasOrphan) return;
 
+    // For orphaned bindings, directly rebind the unbound MAC to the orphaned cat
+    // (skip fingerprint matching — the old MAC has no readings to compare against)
+    if (hasOrphan && gone.length === 0) {
+      const orphanedCats = cats.filter(cat => {
+        const mac = this.store.findMacByCat(cat.id as number);
+        if (!mac) return false;
+        return ![...this.smoothers.entries()].some(
+          ([key, s]) => key.startsWith(mac + "|") && s.isFresh(nowMs, this.cfg.silentSeconds)
+        );
+      });
+
+      // Simple case: 1 orphaned cat, 1 unbound MAC — direct rebind
+      if (orphanedCats.length === 1 && unboundMacs.length === 1) {
+        const catId = orphanedCats[0]!.id as number;
+        const mac = unboundMacs[0]!;
+        this.store.bindMac(mac, catId, "auto", ts);
+        this.resolver.bind(mac, catId, "auto");
+        return;
+      }
+      // Multiple orphans + multiple newcomers: can't distinguish without fingerprints
+      if (orphanedCats.length > 0 && unboundMacs.length > 0) {
+        const event: ServerEvent = {
+          type: "identityAmbiguous",
+          candidates: unboundMacs.map(mac => ({ mac, fingerprint: [] })),
+          at: ts,
+        };
+        this.ws.broadcast(event);
+        return;
+      }
+    }
+
+    // Normal fingerprint-based rebind for MACs that went through sweepSilent
     const result = this.resolver.attemptRebind(unboundMacs, nowMs);
     if (result.kind === "autoRebound") {
       for (const { mac, catId } of result.pairings) {

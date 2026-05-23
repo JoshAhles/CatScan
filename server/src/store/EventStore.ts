@@ -49,6 +49,11 @@ export class EventStore {
     return row?.cat_id ?? null;
   }
 
+  findMacByCat(catId: number): string | null {
+    const row = this.db.prepare(`SELECT mac FROM mac_bindings WHERE cat_id = ? AND unbound_at IS NULL ORDER BY bound_at DESC LIMIT 1`).get(catId) as { mac?: string } | undefined;
+    return row?.mac ?? null;
+  }
+
   openRoomState(catId: number, room: string | null, ts: number) {
     this.db.prepare(`INSERT INTO room_states(cat_id, room, started_at) VALUES(?, ?, ?)`).run(catId, room, ts);
   }
