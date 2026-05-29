@@ -54,12 +54,16 @@ export class Orchestrator {
   private sweepTimer: ReturnType<typeof setInterval> | null = null;
   private gcTimer: ReturnType<typeof setInterval> | null = null;
   private readonly cfg: Required<Omit<OrchestratorConfig, "store" | "ws" | "mqttClient">>;
+  private buildId: string;
 
   constructor(options: OrchestratorConfig) {
     this.store = options.store;
     this.ws = options.ws;
     this.mqttClient = options.mqttClient ?? null;
     this.startedAt = Date.now();
+    try {
+      this.buildId = require("child_process").execSync("git rev-parse --short HEAD", { cwd: __dirname }).toString().trim();
+    } catch { this.buildId = String(Date.now()); }
 
     this.cfg = {
       alpha: options.alpha ?? 0.2,
@@ -580,6 +584,6 @@ export class Orchestrator {
       calibration[room] = "calibrated";
     }
 
-    return { type: "snapshot", ts, cats: catStates, nodes: nodeStates, calibration };
+    return { type: "snapshot", ts, buildId: this.buildId, cats: catStates, nodes: nodeStates, calibration };
   }
 }

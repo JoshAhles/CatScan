@@ -33,6 +33,7 @@ const nodeState = z.object({
 export const snapshotSchema = z.object({
   type: z.literal("snapshot"),
   ts: z.number().int().positive(),
+  buildId: z.string().optional(),
   cats: z.array(catState),
   nodes: z.array(nodeState),
   calibration: z.record(roomName, z.enum(["calibrated", "uncalibrated"])),

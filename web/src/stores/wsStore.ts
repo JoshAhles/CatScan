@@ -66,12 +66,20 @@ function buildApplyEvent(
     return n?.roomName ? `${n.roomName}` : nodeId;
   }
 
+  let knownBuildId: string | null = null;
+
   return (ev: ServerEvent) => {
     switch (ev.type) {
       case "snapshot": {
-        // If the previously-selected cat isn't in the new snapshot (e.g.
-        // after a reconnect where bindings changed), drop the selection so
-        // the detail panel doesn't render against stale state.
+        // Auto-reload if the server was rebuilt (new deploy)
+        if (ev.buildId) {
+          if (knownBuildId && knownBuildId !== ev.buildId) {
+            console.log(`[ws] server rebuilt (${knownBuildId} → ${ev.buildId}), reloading`);
+            window.location.reload();
+            return;
+          }
+          knownBuildId = ev.buildId;
+        }
         const prevSelected = get().selectedCatId;
         const stillExists =
           prevSelected != null && ev.cats.some((c) => c.id === prevSelected);
