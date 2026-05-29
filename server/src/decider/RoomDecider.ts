@@ -81,6 +81,12 @@ export class RoomDecider {
     return results;
   }
 
+  prune(activeMacs: Set<string>) {
+    for (const mac of [...this.state.keys()]) {
+      if (!activeMacs.has(mac)) this.state.delete(mac);
+    }
+  }
+
   private getOrInit(mac: string): PerMacState {
     let s = this.state.get(mac);
     if (!s) {

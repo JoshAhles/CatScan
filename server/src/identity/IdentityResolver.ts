@@ -111,6 +111,12 @@ export class IdentityResolver {
     return { kind: "noOp" };
   }
 
+  prune(activeMacs: Set<string>) {
+    for (const mac of [...this.byMac.keys()]) {
+      if (!activeMacs.has(mac)) this.byMac.delete(mac);
+    }
+  }
+
   private getOrInit(mac: string): MacRolling {
     let r = this.byMac.get(mac);
     if (!r) {

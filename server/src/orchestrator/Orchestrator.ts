@@ -52,6 +52,7 @@ export class Orchestrator {
   private startedAt: number;
   private rssiTimer: ReturnType<typeof setInterval> | null = null;
   private sweepTimer: ReturnType<typeof setInterval> | null = null;
+  private gcTimer: ReturnType<typeof setInterval> | null = null;
   private readonly cfg: Required<Omit<OrchestratorConfig, "store" | "ws" | "mqttClient">>;
 
   constructor(options: OrchestratorConfig) {
@@ -142,6 +143,10 @@ export class Orchestrator {
     // Staleness sweep — detects devices that stopped advertising and triggers rebind
     this.sweepTimer = setInterval(() => this.sweepAndRebind(), 10_000);
 
+    // Prune stale MAC entries from in-memory maps every 5 minutes to prevent
+    // unbounded growth from Tile MAC rotation (~240 new MACs/day).
+    this.gcTimer = setInterval(() => this.pruneStaleEntries(), 5 * 60_000);
+
     // Periodic rssiUpdate broadcaster so the UI's Telemetry panel reflects
     // fresh per-node RSSI values without waiting for a transition event.
     if (this.cfg.rssiBroadcastIntervalMs > 0) {
@@ -160,6 +165,10 @@ export class Orchestrator {
     if (this.sweepTimer) {
       clearInterval(this.sweepTimer);
       this.sweepTimer = null;
+    }
+    if (this.gcTimer) {
+      clearInterval(this.gcTimer);
+      this.gcTimer = null;
     }
     if (this.mqttClient) {
       this.mqttClient.unsubscribe(TOPIC_RAW_PATTERN);
@@ -384,6 +393,42 @@ export class Orchestrator {
       this.ws.broadcast(event);
     }
     // noChange: no event emitted
+  }
+
+  // Remove stale MAC entries from smoothers, resolver, and decider to prevent
+  // memory growth from Tile MAC rotation. Keeps only MACs that have had a
+  // reading in the last 2 minutes or are currently bound to a cat.
+  private pruneStaleEntries() {
+    const nowMs = this.cfg.nowSec() * 1000;
+    const MAX_AGE_MS = 120_000;
+    let pruned = 0;
+
+    // Prune smoothers: remove entries for MACs with no fresh readings
+    const activeMacs = new Set<string>();
+    for (const [key, smoother] of this.smoothers) {
+      const mac = key.split("|")[0]!;
+      if (smoother.isFresh(nowMs, MAX_AGE_MS / 1000)) {
+        activeMacs.add(mac);
+      }
+    }
+    // Also keep any MAC currently bound to a cat
+    for (const cat of this.store.listCats()) {
+      const mac = this.store.findMacByCat(cat.id as number);
+      if (mac) activeMacs.add(mac);
+    }
+    for (const key of [...this.smoothers.keys()]) {
+      const mac = key.split("|")[0]!;
+      if (!activeMacs.has(mac)) {
+        this.smoothers.delete(key);
+        pruned++;
+      }
+    }
+
+    // Prune resolver and decider (expose cleanup methods)
+    this.resolver.prune(activeMacs);
+    this.decider.prune(activeMacs);
+
+    if (pruned > 0) console.log(`[gc] pruned ${pruned} stale smoother entries, ${activeMacs.size} active MACs`);
   }
 
   // Unified binding maintenance: every 10s, ensure every cat has an active MAC.
